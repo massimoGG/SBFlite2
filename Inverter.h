@@ -12,5 +12,6 @@ public:
     ~Inverter() {
         
     }
-}
+};
+
 #endif
