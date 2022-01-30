@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+
+# kdeveloper4
+.kdev4/
+*.kate-swp
+*.kdev4
