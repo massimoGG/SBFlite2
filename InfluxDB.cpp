@@ -87,14 +87,16 @@ InfluxDB InfluxDB::setField(
 int InfluxDB::sendMeasurement()
 {
     //sprintf(body, "%s %s\n", tags.c_str(), value.c_str());
-    sprintf(header, "POST /api/v2/write?org=%s&bucket=%s&precision=ns HTTP/1.1\r\nHost: influx:8086\r\nAuthorization: Token %s\r\nContent-Length: %ld\r\n\r\n", organisation.c_str(), bucket.c_str(), token.c_str(), strlen(body));
+    std::cout << "Sending Body: " << body << std::endl;
+
+    sprintf(header, "POST /api/v2/write?org=%s&bucket=%s&precision=ns HTTP/1.1\r\nHost: influx:8086\r\nAuthorization: Token %s\r\nContent-Length: %ld\r\n\r\n", organisation.c_str(), bucket.c_str(), token.c_str(), body.length());
 
     if (write(sockfd, header, strlen(header)) < 0) {
         perror("Header write() failed");
         return -1;
     }
 
-    if (write(sockfd, body, strlen(body)) < 0) {
+    if (write(sockfd, body.c_str(), body.length()) < 0) {
         perror("Body write() failed");
         return -2;
     }
