@@ -2,5 +2,5 @@
 SBFlite Version 2 which is the successor of the first version
 
 # Features
+- InfluxDB export
 - Daemon
-- Prometheus export port
