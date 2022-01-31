@@ -1,14 +1,27 @@
 #ifndef __inverter_h_
 #define __inverter_h_
 
+#include "sbflite.h"
 #include "types.h"
+
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+//User Group
+#define	UG_USER			0x07L
+#define UG_INSTALLER	0x0AL
 
 char *strftime_t (const time_t rawtime);
 
 class Inverter
 {
 public:
-    Inverter() {}
+    Inverter(char *IPAddress) {
+        strcpy(this->IPAddress, IPAddress);
+    }
     ~Inverter() {
         logOff();
     }
@@ -18,7 +31,11 @@ private:
     int logOn();
     void logOff();
 
-    int getInverterData(enum getInverterDataType);
+    int getInverterData(enum getInverterDataType type);
+    E_SBFSPOT ethInitConnection();
+    E_SBFSPOT getPacket(unsigned char senderaddr[6], int wait4Command);
+    E_SBFSPOT logonSMAInverter(long userGroup, const char *password);
+    E_SBFSPOT logoffSMAInverter();
 
     std::string DeviceName;
     char IPAddress[20];
