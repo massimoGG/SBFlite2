@@ -1,5 +1,6 @@
 #include "Inverter.h"
 
+
 int Inverter::process()
 {
     int rc = logOn();
@@ -134,38 +135,48 @@ int Inverter::process()
  */
 int Inverter::logOn()
 {
-    int rc = 0;
+    int rc = E_OK;
     char msg[80];
 
-    printf("Connecting to Local Network...\n");
+    // TODO Initialize Speedwire connection to inverter
+    AppSUSyID = 125;
+    srand(time(NULL));
+    AppSerial = 900000000 + ((rand() << 16) + rand()) % 100000000;
+    printf("SUSyID: %d - SessionID: %lu\n", AppSUSyID, AppSerial);
 
-    rc = ethConnect();
-    if (rc != 0)
-    {
-        std::cerr << "Failed to set up socket connection." << std::endl;
+    writePacketHeader(pcktBuf, 0, NULL);
+    writePacket(pcktBuf, 0x09, 0xA0, 0, anySUSyID, anySerial);
+    writeLong(pcktBuf, 0x00000200);
+    writeLong(pcktBuf, 0);
+    writeLong(pcktBuf, 0);
+    writeLong(pcktBuf, 0);
+    writePacketLength(pcktBuf);
+
+    ethSend(pcktBuf, IPAddress.c_str());
+
+    if ((rc = ethGetPacket()) == E_OK) {
+
+        ethPacket *pckt = (ethPacket *)pcktBuf;
+        SUSyID = btohs(pckt->Source.SUSyID);
+        Serial = btohl(pckt->Source.Serial);
+        printf("Inverter replied: %s SUSyID: %d - Serial: %lu\n", IPAddress.c_str(), SUSyID, Serial);
+
+        logoffSMAInverter();
+    } else {
+        std::cerr << "ERROR: Speedwire Connection to inverter failed!" << std::endl;
+        std::cerr << "Is " << IPAddress.c_str() << " the correct IP?" << std::endl;
         return rc;
     }
 
-    // Fixed IP
-    rc = ethInitConnectionMulti(IPAddress);
-
-    if (rc != E_OK)
-    {
-        std::cerr << "Failed to initialize Speedwire connection." << std::endl;
-        ethClose();
-        return rc;
-    }
-
-    rc = logonSMAInverter(UG_USER, SMA_Password);
-    if (rc != E_OK)
-    {
+    int userGroup = UG_USER;
+    rc = logonSMAInverter(userGroup, SMA_Password);
+    if (rc != E_OK) {
         if (rc == E_INVPASSW)
             snprintf(msg, sizeof(msg), "Logon failed. Check '%s' Password\n", userGroup == UG_USER? "USER":"INSTALLER");
         else
             snprintf(msg, sizeof(msg), "Logon failed. Reason unknown (%d)\n", rc);
 
         std::cerr << msg << std::endl;
-        bthClose();
         return 1;
     }
 
@@ -181,107 +192,7 @@ void Inverter::logOff()
 // lol
 }
 
-E_SBFSPOT ethGetPacket(void)
-{
-    E_SBFSPOT rc = E_OK;
-
-    ethPacketHeaderL1L2 *pkHdr = (ethPacketHeaderL1L2 *)CommBuf;
-
-    do
-    {
-        int bib = ethRead(CommBuf, sizeof(CommBuf));
-
-        if (bib <= 0)
-        {
-            if (DEBUG_NORMAL) printf("No data!\n");
-            rc = E_NODATA;
-        }
-        else
-        {
-            unsigned short pkLen = (pkHdr->pcktHdrL1.hiPacketLen << 8) + pkHdr->pcktHdrL1.loPacketLen;
-
-            //More data after header?
-            if (pkLen > 0)
-            {
-                HexDump(CommBuf, bib, 10);
-                if (btohl(pkHdr->pcktHdrL2.MagicNumber) == ETH_L2SIGNATURE)
-                {
-                    // Copy CommBuf to packetbuffer
-                    // Dummy byte to align with BTH (7E)
-                    pcktBuf[0]= 0;
-                    // We need last 6 bytes of ethPacketHeader too
-                    memcpy(pcktBuf+1, CommBuf + sizeof(ethPacketHeaderL1), bib - sizeof(ethPacketHeaderL1));
-                    // Point packetposition at last byte in our buffer
-                    // This is different from BTH
-                    packetposition = bib - sizeof(ethPacketHeaderL1);
-
-                    printf("<<<====== Content of pcktBuf =======>>>\n");
-                    HexDump(pcktBuf, packetposition, 10);
-                    printf("<<<=================================>>>\n");
-
-
-                    rc = E_OK;
-                }
-                else
-                {
-                    if (DEBUG_NORMAL) printf("L2 header not found.\n");
-                    rc = E_RETRY;
-                }
-            }
-            else
-                rc = E_NODATA;
-        }
-    } while (rc == E_RETRY);
-
-    return rc;
-}
-
-// Initialise multiple ethernet connected inverters
-E_SBFSPOT Inverter::ethInitConnection()
-{
-    puts("Initializing...");
-
-    //Generate a Serial Number for application
-    AppSUSyID = 125;
-    srand(time(NULL));
-    AppSerial = 900000000 + ((rand() << 16) + rand()) % 100000000;
-
-    printf("SUSyID: %d - SessionID: %lu\n", AppSUSyID, AppSerial);
-
-    E_SBFSPOT rc = E_OK;
-
-    strcpy(this->IPAddress, IPAddress);
-    std::cout << "Inverter IP address: " << IPAddress << "\n";
-
-    writePacketHeader(pcktBuf, 0, NULL);
-    writePacket(pcktBuf, 0x09, 0xA0, 0, anySUSyID, anySerial);
-    writeLong(pcktBuf, 0x00000200);
-    writeLong(pcktBuf, 0);
-    writeLong(pcktBuf, 0);
-    writeLong(pcktBuf, 0);
-    writePacketLength(pcktBuf);
-
-    ethSend(pcktBuf, IPAddress);
-
-    if ((rc = ethGetPacket()) == E_OK) {
-        ethPacket *pckt = (ethPacket *)pcktBuf;
-        SUSyID = btohs(pckt->Source.SUSyID);
-        Serial = btohl(pckt->Source.Serial);
-        printf("Inverter replied: %s SUSyID: %d - Serial: %lu\n", IPAddress, SUSyID, Serial);
-
-        logoffSMAInverter();
-    } else {
-        std::cerr << "ERROR: Connection to inverter failed!" << std::endl;
-        std::cerr << "Is " << IPAddress << " the correct IP?" << std::endl;
-        std::cerr << "Please check IP_Address in SBFspot.cfg!" << std::endl;
-        // Fix #412 skipping unresponsive inverter
-        // Continue with next device instead of returning E_INIT and skipping the remaining devices
-        // return E_INIT;
-    }
-
-    return rc;
-}
-
+/*
 E_SBFSPOT Inverter::getPacket(unsigned char senderaddr[6], int wait4Command)
 {
     if (DEBUG_NORMAL) printf("getPacket(%d)\n", wait4Command);
@@ -403,7 +314,7 @@ E_SBFSPOT Inverter::getPacket(unsigned char senderaddr[6], int wait4Command)
     }
 
     return rc;
-}
+}*/
 
 E_SBFSPOT Inverter::logonSMAInverter(long userGroup, const char *password)
 {
@@ -425,6 +336,7 @@ E_SBFSPOT Inverter::logonSMAInverter(long userGroup, const char *password)
 
     time_t now;
 
+    // WARNING This might be an issue when dealing with multiple inverters?
     pcktID++;
     now = time(NULL);
     writePacketHeader(pcktBuf, 0x01, addr_unknown);
@@ -442,7 +354,7 @@ E_SBFSPOT Inverter::logonSMAInverter(long userGroup, const char *password)
     writePacketTrailer(pcktBuf);
     writePacketLength(pcktBuf);
 
-    ethSend(pcktBuf, IPAddress);
+    ethSend(pcktBuf, IPAddress.c_str());
 
     validPcktID = 0;
     do
@@ -472,8 +384,6 @@ E_SBFSPOT Inverter::logonSMAInverter(long userGroup, const char *password)
         }
     } while ((validPcktID == 0) && (rc == E_OK)); // Fix Issue 167
 
-
-
     return rc;
 }
 
@@ -489,7 +399,7 @@ E_SBFSPOT Inverter::logoffSMAInverter()
     writePacketTrailer(pcktBuf);
     writePacketLength(pcktBuf);
 
-    ethSend(pcktBuf, IPAddress);
+    ethSend(pcktBuf, IPAddress.c_str());
 
     return E_OK;
 }
@@ -691,7 +601,7 @@ int Inverter::getInverterData(enum getInverterDataType type)
     writePacketTrailer(pcktBuf);
     writePacketLength(pcktBuf);
 
-    ethSend(pcktBuf, IPAddress);
+    ethSend(pcktBuf, IPAddress.c_str());
 
     do {
         do {

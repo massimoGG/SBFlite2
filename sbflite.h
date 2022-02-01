@@ -10,6 +10,12 @@
 
 #define DEBUG_NORMAL 1
 
+//User Group
+#define	UG_USER			0x07L
+#define UG_INSTALLER	0x0AL
+
+#define SMA_Password ""
+
 #define NaN_S16 0x8000                          // "Not a Number" representation for int16_t
 #define NaN_U16 0xFFFF                          // "Not a Number" representation for uint16_t
 #define NaN_S32 (int32_t) 0x80000000            // "Not a Number" representation for int32_t

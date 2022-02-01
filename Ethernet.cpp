@@ -138,6 +138,53 @@ int ethClose()
     return 0;
 }
 
+
+E_SBFSPOT ethGetPacket(void)
+{
+    E_SBFSPOT rc = E_OK;
+
+    ethPacketHeaderL1L2 *pkHdr = (ethPacketHeaderL1L2 *)CommBuf;
+
+    do {
+        int bib = ethRead(CommBuf, sizeof(CommBuf));
+
+        if (bib <= 0) {
+            if (DEBUG_NORMAL) printf("No data!\n");
+            rc = E_NODATA;
+        } else {
+            unsigned short pkLen = (pkHdr->pcktHdrL1.hiPacketLen << 8) + pkHdr->pcktHdrL1.loPacketLen;
+
+            //More data after header?
+            if (pkLen > 0) {
+                HexDump(CommBuf, bib, 10);
+                if (btohl(pkHdr->pcktHdrL2.MagicNumber) == ETH_L2SIGNATURE) {
+                    // Copy CommBuf to packetbuffer
+                    // Dummy byte to align with BTH (7E)
+                    pcktBuf[0]= 0;
+                    // We need last 6 bytes of ethPacketHeader too
+                    memcpy(pcktBuf+1, CommBuf + sizeof(ethPacketHeaderL1), bib - sizeof(ethPacketHeaderL1));
+                    // Point packetposition at last byte in our buffer
+                    // This is different from BTH
+                    packetposition = bib - sizeof(ethPacketHeaderL1);
+
+                    printf("<<<====== Content of pcktBuf =======>>>\n");
+                    HexDump(pcktBuf, packetposition, 10);
+                    printf("<<<=================================>>>\n");
+
+                    rc = E_OK;
+                } else {
+                    if (DEBUG_NORMAL) printf("L2 header not found.\n");
+                    rc = E_RETRY;
+                }
+            }
+            else
+                rc = E_NODATA;
+        }
+    } while (rc == E_RETRY);
+
+    return rc;
+}
+
 int getLocalIP(unsigned char IPaddress[4])
 {
     int rc = 0;
@@ -214,7 +261,7 @@ void writeArray(unsigned char *btbuffer, const unsigned char bytes[], int loopco
 
 int64_t get_longlong(BYTE *buf)
 {
-    register int64_t lnglng = 0;
+    int64_t lnglng = 0;
 
 	lnglng += *(buf+7);
 	lnglng <<= 8;
@@ -237,7 +284,7 @@ int64_t get_longlong(BYTE *buf)
 
 int32_t get_long(BYTE *buf)
 {
-    register int32_t lng = 0;
+    int32_t lng = 0;
 
 	lng += *(buf+3);
 	lng <<= 8;
@@ -252,7 +299,7 @@ int32_t get_long(BYTE *buf)
 
 short get_short(BYTE *buf)
 {
-    register short shrt = 0;
+    short shrt = 0;
 
 	shrt += *(buf+1);
 	shrt <<= 8;
@@ -267,24 +314,20 @@ void writePacketHeader(unsigned char *buf, const unsigned int control, const uns
 {
     packetposition = 0;
 
-
     //Ignore control and destaddress
     writeLong(buf, 0x00414D53);  // SMA\0
     writeLong(buf, 0xA0020400);
     writeLong(buf, 0x01000000);
     writeByte(buf, 0);
     writeByte(buf, 0);          // Placeholder for packet length
-
 }
 
 void writePacketLength(unsigned char *buf)
 {
-
     short dataLength = (short)(packetposition - sizeof(ethPacketHeaderL1L2));
     ethPacketHeaderL1L2 *hdr = (ethPacketHeaderL1L2 *)buf;
     hdr->pcktHdrL1.hiPacketLen = (dataLength >> 8) & 0xFF;
     hdr->pcktHdrL1.loPacketLen = dataLength & 0xFF;
-
 }
 
 int validateChecksum()

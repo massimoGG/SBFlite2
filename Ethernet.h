@@ -2,6 +2,7 @@
 #define __ethernet_h_
 
 #include "sbflite.h"
+#include "types.h"
 
 #include <iostream>
 #include <stdio.h>
@@ -23,6 +24,8 @@
 const char *IP_Broadcast = "239.12.255.254";
 
 int MAX_CommBuf;
+#define COMMBUFSIZE 2048 // Size of Communications Buffer (Bluetooth/Ethernet)
+unsigned char CommBuf[COMMBUFSIZE];
 int sock;
 struct sockaddr_in addr_in, addr_out;
 
@@ -70,6 +73,7 @@ int ethClose(void);
 int getLocalIP(unsigned char IPAddress[4]);
 int ethSend(unsigned char *buffer, const char *toIP);
 int ethRead(unsigned char *buf, unsigned int bufsize);
+E_SBFSPOT ethGetPacket(void);
 void HexDump(unsigned char *buf, int count, int radix);
 
 void writeLong(unsigned char *btbuffer, const unsigned long v);
@@ -84,5 +88,24 @@ int validateChecksum(void);
 short get_short(unsigned char *buf);
 int32_t get_long(unsigned char *buf);
 int64_t get_longlong(unsigned char *buf);
+
+/* Byte order conversions */
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define htobs(d)  (d)
+#define htobl(d)  (d)
+#define htobll(d) (d)
+#define btohs(d)  (d)
+#define btohl(d)  (d)
+#define btohll(d) (d)
+#elif __BYTE_ORDER == __BIG_ENDIAN
+#define htobs(d)  bswap_16(d)
+#define htobl(d)  bswap_32(d)
+#define htobll(d) bswap_64(d)
+#define btohs(d)  bswap_16(d)
+#define btohl(d)  bswap_32(d)
+#define btohll(d) bswap_64(d)
+#else
+#error "Unknown byte order"
+#endif
 
 #endif
