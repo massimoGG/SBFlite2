@@ -1,9 +1,7 @@
 #ifndef __inverter_h_
 #define __inverter_h_
 
-#include "sbflite.h"
 #include "types.h"
-#include "Ethernet.h"
 
 #include <iostream>
 #include <vector>
@@ -86,6 +84,13 @@ private:
     long calPdcTot;
     long calPacTot;
     float calEfficiency;
+    unsigned long BatChaStt;			// Current battery charge status
+    unsigned long BatDiagCapacThrpCnt;	// Number of battery charge throughputs
+    unsigned long BatDiagTotAhIn;		// Amp hours counter for battery charge
+    unsigned long BatDiagTotAhOut;		// Amp hours counter for battery discharge
+    unsigned long BatTmpVal;			// Battery temperature
+    unsigned long BatVol;				// Battery voltage
+    long BatAmp;						// Battery current
     int32_t Temperature;                // Inverter Temperature
     int32_t	MeteringGridMsTotWOut;		// Power grid feed-in (Out)
     int32_t MeteringGridMsTotWIn;		// Power grid reference (In)

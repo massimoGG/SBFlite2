@@ -1,13 +1,3 @@
-#include <iostream>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
-
 #include "InfluxDB.h"
 
 InfluxDB::~InfluxDB()
@@ -39,7 +29,7 @@ int InfluxDB::open(const std::string ipaddress, const  unsigned short port, cons
     return 0;
 }
 
-int InfluxDB::close()
+void InfluxDB::close()
 {
     if (sockfd > 0)
         ::close(sockfd);

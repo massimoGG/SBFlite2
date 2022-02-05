@@ -2,6 +2,10 @@
 #include <vector>
 
 #include "sbflite.h"
+#include "Inverter.h"
+#include "Ethernet.h"
+#include "InfluxDB.h"
+#include "types.h"
 
 int main(int argc, char *argv[])
 {

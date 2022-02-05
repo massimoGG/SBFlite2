@@ -1,9 +1,6 @@
 #ifndef __ethernet_h_
 #define __ethernet_h_
 
-#include "sbflite.h"
-#include "types.h"
-
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>

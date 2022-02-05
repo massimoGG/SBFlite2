@@ -1,5 +1,5 @@
 #include "Inverter.h"
-
+#include "Ethernet.h"
 
 int Inverter::process()
 {
@@ -129,10 +129,6 @@ int Inverter::process()
     return rc;
 }
 
-/**  TODO MOVE THE SOCKET SETUP OUT OF INVERTER!
- *  A socket shouldn't be created for each inverter!
- * Also fix bluetooth library
- */
 int Inverter::logOn()
 {
     int rc = E_OK;
@@ -191,130 +187,6 @@ void Inverter::logOff()
 {
 // lol
 }
-
-/*
-E_SBFSPOT Inverter::getPacket(unsigned char senderaddr[6], int wait4Command)
-{
-    if (DEBUG_NORMAL) printf("getPacket(%d)\n", wait4Command);
-    int index = 0;
-    int hasL2pckt  = 0;
-    E_SBFSPOT rc = E_OK;
-    pkHeader *pkHdr = (pkHeader *)CommBuf;
-    do
-    {
-        int bib = bthRead(CommBuf, sizeof(pkHeader));
-        if (bib <= 0)
-        {
-            printf("No data!\n");
-            return E_NODATA;
-        }
-
-        //More data after header?
-        if (btohs(pkHdr->pkLength) > sizeof(pkHeader))
-        {
-            bib += bthRead(CommBuf + sizeof(pkHeader), btohs(pkHdr->pkLength) - sizeof(pkHeader));
-
-            HexDump(CommBuf, bib, 10);
-
-            //Check if data is coming from the right inverter
-            if (isValidSender(senderaddr, pkHdr->SourceAddr) == 1)
-            {
-                rc = E_OK;
-                printf("cmd=%d\n", btohs(pkHdr->command));
-
-                if ((hasL2pckt == 0) && (CommBuf[18] == 0x7E) && (get_long(CommBuf+19) == 0x656003FF))
-                {
-                    hasL2pckt = 1;
-                }
-
-                if (hasL2pckt == 1) {
-                    //Copy CommBuf to packetbuffer
-                    int bufptr = sizeof(pkHeader);
-                    bool escNext = false;
-
-                    printf("PacketLength=%d\n", btohs(pkHdr->pkLength));
-
-                    for (int i = sizeof(pkHeader); i < btohs(pkHdr->pkLength); i++) {
-                        pcktBuf[index] = CommBuf[bufptr++];
-                        //Keep 1st byte raw unescaped 0x7E
-                        if (escNext == true) {
-                            pcktBuf[index] ^= 0x20;
-                            escNext = false;
-                            index++;
-                        } else {
-                            if (pcktBuf[index] == 0x7D)
-                                escNext = true; //Throw away the 0x7d byte
-                            else
-                                index++;
-                        }
-                        if (index >= maxpcktBufsize) {
-                            printf("Warning: pcktBuf buffer overflow! (%d)\n", index);
-                            return E_BUFOVRFLW;
-                        }
-                    }
-                    packetposition = index;
-                }
-                else
-                {
-                    memcpy(pcktBuf, CommBuf, bib);
-                    packetposition = bib;
-                }
-            } // isValidSender()
-            else
-            {
-                rc = E_RETRY;
-                if (DEBUG_NORMAL)
-                    printf("Wrong sender: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                           pkHdr->SourceAddr[5],
-                           pkHdr->SourceAddr[4],
-                           pkHdr->SourceAddr[3],
-                           pkHdr->SourceAddr[2],
-                           pkHdr->SourceAddr[1],
-                           pkHdr->SourceAddr[0]);
-            }
-        }
-        else
-        {
-            HexDump(CommBuf, bib, 10);
-            //Check if data is coming from the right inverter
-            if (isValidSender(senderaddr, pkHdr->SourceAddr) == 1)
-            {
-                rc = E_OK;
-                if (DEBUG_NORMAL) printf("cmd=%d\n", btohs(pkHdr->command));
-
-                memcpy(pcktBuf, CommBuf, bib);
-                packetposition = bib;
-            } // isValidSender()
-            else
-            {
-                rc = E_RETRY;
-                if (DEBUG_NORMAL)
-                    printf("Wrong sender: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                           pkHdr->SourceAddr[5],
-                           pkHdr->SourceAddr[4],
-                           pkHdr->SourceAddr[3],
-                           pkHdr->SourceAddr[2],
-                           pkHdr->SourceAddr[1],
-                           pkHdr->SourceAddr[0]);
-            }
-        }
-    }
-    // changed to have "any" wait4Command (0xFF) - if you have different order of commands
-    while (((btohs(pkHdr->command) != wait4Command) || (rc == E_RETRY)) && (0xFF != wait4Command));
-
-    if (rc == E_OK) {
-        printf("<<<====== Content of pcktBuf =======>>>\n");
-        HexDump(pcktBuf, packetposition, 10);
-        printf("<<<=================================>>>\n");
-    }
-
-    if (packetposition > MAX_pcktBuf) {
-        MAX_pcktBuf = packetposition;
-        printf("MAX_pcktBuf is now %d bytes\n", MAX_pcktBuf);
-    }
-
-    return rc;
-}*/
 
 E_SBFSPOT Inverter::logonSMAInverter(long userGroup, const char *password)
 {
@@ -460,6 +332,22 @@ void debug_text(const char *txt, const char *val, const time_t dt)
     }
 }
 
+const std::string version_tostring(int32_t version)
+{
+    char ver[16];
+
+    unsigned char Vtype = version & 0xFF;
+    Vtype = Vtype > 5 ? '?' : "NEABRS"[Vtype]; //NOREV-EXPERIMENTAL-ALPHA-BETA-RELEASE-SPECIAL
+    unsigned char Vbuild = (version >> 8) & 0xFF;
+    unsigned char Vminor = (version >> 16) & 0xFF;
+    unsigned char Vmajor = (version >> 24) & 0xFF;
+
+    //Vmajor and Vminor = 0x12 should be printed as '12' and not '18' (BCD)
+    snprintf(ver, sizeof(ver), "%c%c.%c%c.%02d.%c", '0' + (Vmajor >> 4), '0' + (Vmajor & 0x0F), '0' + (Vminor >> 4), '0' + (Vminor & 0x0F), Vbuild, Vtype);
+
+    return std::string(ver);
+}
+
 int Inverter::getInverterData(enum getInverterDataType type)
 {
     int rc = E_OK;
@@ -603,6 +491,8 @@ int Inverter::getInverterData(enum getInverterDataType type)
 
     ethSend(pcktBuf, IPAddress.c_str());
 
+    int validPcktID = 1;
+    unsigned short pcktcount = 0;
     do {
         do {
             rc = ethGetPacket();
@@ -618,434 +508,433 @@ int Inverter::getInverterData(enum getInverterDataType type)
 
             pcktcount = get_short(pcktBuf + 25);
             unsigned short rcvpcktID = get_short(pcktBuf + 27) & 0x7FFF;
-            if (pcktID == rcvpcktID)
-            {
-                int inv = getInverterIndexBySerial(get_short(pcktBuf + 15), get_long(pcktBuf + 17));
-                if (inv >= 0)
+            if (pcktID == rcvpcktID) {
+                std::cout << "Inverter Serial: " << get_short(pcktBuf + 15) << "; " << get_long(pcktBuf + 17) << "\n";
+
+                validPcktID = 1;
+                int32_t value = 0;
+                int64_t value64 = 0;
+                uint32_t recordsize = 4 * ((uint32_t)pcktBuf[5] - 9) / ((uint32_t)get_long(pcktBuf + 37) - (uint32_t)get_long(pcktBuf + 33) + 1);
+
+                for (int ii = 41; ii < packetposition - 3; ii += recordsize)
                 {
-                    validPcktID = 1;
-                    int32_t value = 0;
-                    int64_t value64 = 0;
-                    uint32_t recordsize = 4 * ((uint32_t)pcktBuf[5] - 9) / ((uint32_t)get_long(pcktBuf + 37) - (uint32_t)get_long(pcktBuf + 33) + 1);
+                    unsigned char *recptr = pcktBuf + ii;
+                    uint32_t code = ((uint32_t)get_long(recptr));
+                    LriDef lri = (LriDef)(code & 0x00FFFF00);
+                    uint32_t cls = code & 0xFF;
+                    unsigned char dataType = code >> 24;
+                    time_t datetime = (time_t)get_long(recptr + 4);
 
-                    for (int ii = 41; ii < packetposition - 3; ii += recordsize)
+                    // fix: We can't rely on dataType because it can be both 0x00 or 0x40 for DWORDs
+                    //if ((lri == MeteringDyWhOut) || (lri == MeteringTotWhOut) || (lri == MeteringTotFeedTms) || (lri == MeteringTotOpTms))  //QWORD
+                    if (recordsize == 16)
                     {
-                        unsigned char *recptr = pcktBuf + ii;
-                        uint32_t code = ((uint32_t)get_long(recptr));
-                        LriDef lri = (LriDef)(code & 0x00FFFF00);
-                        uint32_t cls = code & 0xFF;
-                        unsigned char dataType = code >> 24;
-                        time_t datetime = (time_t)get_long(recptr + 4);
+                        value64 = get_longlong(recptr + 8);
+                        if (is_NaN(value64) || is_NaN((uint64_t)value64))
+                            value64 = 0;
+                    }
+                    else if ((dataType != DT_STRING) && (dataType != DT_STATUS))
+                    {
+                        value = get_long(recptr + 16);
+                        if (is_NaN(value) || is_NaN((uint32_t)value))
+                            value = 0;
+                    }
 
-                        // fix: We can't rely on dataType because it can be both 0x00 or 0x40 for DWORDs
-                        //if ((lri == MeteringDyWhOut) || (lri == MeteringTotWhOut) || (lri == MeteringTotFeedTms) || (lri == MeteringTotOpTms))  //QWORD
-                        if (recordsize == 16)
+                    switch (lri)
+                    {
+                    case GridMsTotW: //SPOT_PACTOT
+                        //This function gives us the time when the inverter was switched off
+                        SleepTime = datetime;
+                        TotalPac = value;
+                        flags |= type;
+                        debug_watt("SPOT_PACTOT", value, datetime);
+                        break;
+
+                    case GridMsWphsA: //SPOT_PAC1
+                        Pac1 = value;
+                        flags |= type;
+                        debug_watt("SPOT_PAC1", value, datetime);
+                        break;
+
+                    case GridMsWphsB: //SPOT_PAC2
+                        Pac2 = value;
+                        flags |= type;
+                        debug_watt("SPOT_PAC2", value, datetime);
+                        break;
+
+                    case GridMsWphsC: //SPOT_PAC3
+                        Pac3 = value;
+                        flags |= type;
+                        debug_watt("SPOT_PAC3", value, datetime);
+                        break;
+
+                    case GridMsPhVphsA: //SPOT_UAC1
+                        Uac1 = value;
+                        flags |= type;
+                        debug_volt("SPOT_UAC1", value, datetime);
+                        break;
+
+                    case GridMsPhVphsB: //SPOT_UAC2
+                        Uac2 = value;
+                        flags |= type;
+                        debug_volt("SPOT_UAC2", value, datetime);
+                        break;
+
+                    case GridMsPhVphsC: //SPOT_UAC3
+                        Uac3 = value;
+                        flags |= type;
+                        debug_volt("SPOT_UAC3", value, datetime);
+                        break;
+
+                    case GridMsAphsA_1: //SPOT_IAC1
+                    case GridMsAphsA:
+                        Iac1 = value;
+                        flags |= type;
+                        debug_amp("SPOT_IAC1", value, datetime);
+                        break;
+
+                    case GridMsAphsB_1: //SPOT_IAC2
+                    case GridMsAphsB:
+                        Iac2 = value;
+                        flags |= type;
+                        debug_amp("SPOT_IAC2", value, datetime);
+                        break;
+
+                    case GridMsAphsC_1: //SPOT_IAC3
+                    case GridMsAphsC:
+                        Iac3 = value;
+                        flags |= type;
+                        debug_amp("SPOT_IAC3", value, datetime);
+                        break;
+
+                    case GridMsHz: //SPOT_FREQ
+                        GridFreq = value;
+                        flags |= type;
+                        debug_amp("SPOT_FREQ", value, datetime);
+                        break;
+
+                    case DcMsWatt: //SPOT_PDC1 / SPOT_PDC2
+                        // TODO: Remove cls 1/2
+                        if (cls == 1)
                         {
-                            value64 = get_longlong(recptr + 8);
-                            if (is_NaN(value64) || is_NaN((uint64_t)value64))
-                                value64 = 0;
+                            Pdc1 = value;
                         }
-                        else if ((dataType != DT_STRING) && (dataType != DT_STATUS))
+                        if (cls == 2)
                         {
-                            value = get_long(recptr + 16);
-                            if (is_NaN(value) || is_NaN((uint32_t)value))
-                                value = 0;
+                            Pdc2 = value;
                         }
 
-                        switch (lri)
+                        /*
+                        it = mpp.find((uint8_t)cls);
+                        if (it != mpp.end())
+                            it->second.Pdc(value);
+                        else
                         {
-                        case GridMsTotW: //SPOT_PACTOT
-                            //This function gives us the time when the inverter was switched off
-                            SleepTime = datetime;
-                            TotalPac = value;
-                            flags |= type;
-                            debug_watt("SPOT_PACTOT", value, datetime);
-                            break;
+                            mppt new_mppt;
+                            new_mppt.Pdc(value);
+                            mpp.insert(std::make_pair(cls, new_mppt));
+                        }*/
 
-                        case GridMsWphsA: //SPOT_PAC1
-                            Pac1 = value;
-                            flags |= type;
-                            debug_watt("SPOT_PAC1", value, datetime);
-                            break;
+                        debug_watt((std::string("SPOT_PDC") + std::to_string(cls)).c_str(), value, datetime);
 
-                        case GridMsWphsB: //SPOT_PAC2
-                            Pac2 = value;
-                            flags |= type;
-                            debug_watt("SPOT_PAC2", value, datetime);
-                            break;
+                        calPdcTot += value;
 
-                        case GridMsWphsC: //SPOT_PAC3
-                            Pac3 = value;
-                            flags |= type;
-                            debug_watt("SPOT_PAC3", value, datetime);
-                            break;
+                        flags |= type;
+                        break;
 
-                        case GridMsPhVphsA: //SPOT_UAC1
-                            Uac1 = value;
-                            flags |= type;
-                            debug_volt("SPOT_UAC1", value, datetime);
-                            break;
+                    case DcMsVol: //SPOT_UDC1 / SPOT_UDC2
+                        // TODO: Remove cls 1/2
+                        if (cls == 1)
+                        {
+                            Udc1 = value;
+                        }
+                        if (cls == 2)
+                        {
+                            Udc2 = value;
+                        }
+/*
+                        it = mpp.find((uint8_t)cls);
+                        if (it != mpp.end())
+                            it->second.Udc(value);
+                        else
+                        {
+                            mppt new_mppt;
+                            new_mppt.Udc(value);
+                            mpp.insert(std::make_pair(cls, new_mppt));
+                        }
+*/
+                        debug_volt((std::string("SPOT_UDC") + std::to_string(cls)).c_str(), value, datetime);
 
-                        case GridMsPhVphsB: //SPOT_UAC2
-                            Uac2 = value;
-                            flags |= type;
-                            debug_volt("SPOT_UAC2", value, datetime);
-                            break;
+                        flags |= type;
+                        break;
 
-                        case GridMsPhVphsC: //SPOT_UAC3
-                            Uac3 = value;
-                            flags |= type;
-                            debug_volt("SPOT_UAC3", value, datetime);
-                            break;
+                    case DcMsAmp: //SPOT_IDC1 / SPOT_IDC2
+                        // TODO: Remove cls 1/2
+                        if (cls == 1)
+                        {
+                            Idc1 = value;
+                        }
+                        if (cls == 2)
+                        {
+                            Idc2 = value;
+                        }
+/*
+                        it = mpp.find((uint8_t)cls);
+                        if (it != mpp.end())
+                            it->second.Idc(value);
+                        else
+                        {
+                            mppt new_mppt;
+                            new_mppt.Idc(value);
+                            mpp.insert(std::make_pair(cls, new_mppt));
+                        }
+*/
+                        debug_amp((std::string("SPOT_IDC") + std::to_string(cls)).c_str(), value, datetime);
 
-                        case GridMsAphsA_1: //SPOT_IAC1
-                        case GridMsAphsA:
-                            Iac1 = value;
-                            flags |= type;
-                            debug_amp("SPOT_IAC1", value, datetime);
-                            break;
+                        flags |= type;
+                        break;
 
-                        case GridMsAphsB_1: //SPOT_IAC2
-                        case GridMsAphsB:
-                            Iac2 = value;
-                            flags |= type;
-                            debug_amp("SPOT_IAC2", value, datetime);
-                            break;
+                    case MeteringTotWhOut: //SPOT_ETOTAL
+                        //In case SPOT_ETODAY missing, this function gives us inverter time (eg: SUNNY TRIPOWER 6.0)
+                        InverterDatetime = datetime;
+                        ETotal = value64;
+                        flags |= type;
+                        debug_kwh("SPOT_ETOTAL", value64, datetime);
+                        break;
 
-                        case GridMsAphsC_1: //SPOT_IAC3
-                        case GridMsAphsC:
-                            Iac3 = value;
-                            flags |= type;
-                            debug_amp("SPOT_IAC3", value, datetime);
-                            break;
+                    case MeteringDyWhOut: //SPOT_ETODAY
+                        //This function gives us the current inverter time
+                        InverterDatetime = datetime;
+                        EToday = value64;
+                        flags |= type;
+                        debug_kwh("SPOT_ETODAY", value64, datetime);
+                        break;
 
-                        case GridMsHz: //SPOT_FREQ
-                            GridFreq = value;
-                            flags |= type;
-                            debug_amp("SPOT_FREQ", value, datetime);
-                            break;
+                    case MeteringTotOpTms: //SPOT_OPERTM
+                        OperationTime = value64;
+                        flags |= type;
+                        debug_hour("SPOT_OPERTM", value64, datetime);
+                        break;
 
-                        case DcMsWatt: //SPOT_PDC1 / SPOT_PDC2
-                            // TODO: Remove cls 1/2
-                            if (cls == 1)
+                    case MeteringTotFeedTms: //SPOT_FEEDTM
+                        FeedInTime = value64;
+                        flags |= type;
+                        debug_hour("SPOT_FEEDTM", value64, datetime);
+                        break;
+
+                    case NameplateLocation: //INV_NAME
+                        //This function gives us the time when the inverter was switched on
+                        WakeupTime = datetime;
+                        DeviceName = std::string((char *)recptr + 8, strnlen((char *)recptr + 8, recordsize - 8)); // Fix #506
+                        flags |= type;
+                        debug_text("INV_NAME", DeviceName.c_str(), datetime);
+                        break;
+
+                    case NameplatePkgRev: //INV_SWVER
+                        SWVersion = version_tostring(get_long(recptr + 24));
+                        flags |= type;
+                        debug_text("INV_SWVER", SWVersion.c_str(), datetime);
+                        break;
+
+                    case NameplateModel: //INV_TYPE
+                    {
+                        /*
+                        auto attr = getattribute(recptr);
+                        if (attr.size() > 0)
+                        {
+                            DeviceType = tagdefs.getDesc(attr.front());
+                            if (DeviceType.empty())
                             {
-                                Pdc1 = value;
+                                DeviceType = "UNKNOWN TYPE";
+                                printf("ID='%d'\n", attr.front());
                             }
-                            if (cls == 2)
-                            {
-                                Pdc2 = value;
-                            }
+                            flags |= type;
+                            debug_text("INV_TYPE", DeviceType.c_str(), datetime);
+                        }*/
+                        break;
+                    }
 
-                            /*
-                            it = mpp.find((uint8_t)cls);
-                            if (it != mpp.end())
-                                it->second.Pdc(value);
+                    case NameplateMainModel: //INV_CLASS
+                    {
+                        /*
+                        auto attr = getattribute(recptr);
+                        if (attr.size() > 0)
+                        {
+                            DevClass = (DEVICECLASS)attr.front();
+                            DeviceClass = tagdefs.getDesc(DevClass, "UNKNOWN CLASS");
+
+                            flags |= type;
+                            debug_text("INV_CLASS", DeviceClass.c_str(), datetime);
+                        }*/
+                        break;
+                    }
+
+                    case OperationHealth: //INV_STATUS:
+                    {
+                        /*
+                        auto attr = getattribute(recptr);
+                        if (attr.size() > 0)
+                        {
+                            DeviceStatus = attr.front();
+                            flags |= type;
+                            debug_text("INV_STATUS", tagdefs.getDesc(DeviceStatus, "?").c_str(), datetime);
+                        }*/
+                        break;
+                    }
+
+                    case OperationGriSwStt: //INV_GRIDRELAY
+                    {
+                        /*
+                        auto attr = getattribute(recptr);
+                        if (attr.size() > 0)
+                        {
+                            GridRelayStatus = attr.front();
+                            flags |= type;
+                            debug_text("INV_GRIDRELAY", tagdefs.getDesc(GridRelayStatus, "?").c_str(), datetime);
+                        }*/
+                        break;
+                    }
+
+                    case E_BatChaStt:
+                        BatChaStt = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatDiagCapacThrpCnt:
+                        BatDiagCapacThrpCnt = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatDiagTotAhIn:
+                        BatDiagTotAhIn = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatDiagTotAhOut:
+                        BatDiagTotAhOut = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatTmpVal:
+                        BatTmpVal = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatVol:
+                        BatVol = value;
+                        flags |= type;
+                        break;
+
+                    case E_BatAmp:
+                        BatAmp = value;
+                        flags |= type;
+                        break;
+
+                    case CoolsysTmpNom:
+                        Temperature = value;
+                        flags |= type;
+                        break;
+
+                    case E_MeteringGridMsTotWOut:
+                        MeteringGridMsTotWOut = value;
+                        break;
+
+                    case E_MeteringGridMsTotWIn:
+                        MeteringGridMsTotWIn = value;
+                        break;
+
+                    default:
+                        /*
+                         // tagdefs -> messages
+                        switch (dataType)
+                        {
+                        case DT_ULONG:
+                            if (recordsize == 16)
+                            {
+                                printf("%08X %d %s '%s' %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), u64_tostring(get_longlong(recptr + 8)).c_str());
+                            }
+                            else if (recordsize == 28)
+                            {
+                                printf("%08X %d %s '%s' %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
+                                       u32_tostring(get_long(recptr + 8)).c_str(),
+                                       u32_tostring(get_long(recptr + 12)).c_str(),
+                                       u32_tostring(get_long(recptr + 16)).c_str(),
+                                       u32_tostring(get_long(recptr + 20)).c_str()
+                                      );
+                            }
+                            else if (recordsize == 40)
+                            {
+                                printf("%08X %d %s '%s' %s %s %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
+                                       u32_tostring(get_long(recptr + 8)).c_str(),
+                                       u32_tostring(get_long(recptr + 12)).c_str(),
+                                       u32_tostring(get_long(recptr + 16)).c_str(),
+                                       u32_tostring(get_long(recptr + 20)).c_str(),
+                                       u32_tostring(get_long(recptr + 24)).c_str(),
+                                       u32_tostring(get_long(recptr + 28)).c_str()
+                                      );
+                            }
                             else
-                            {
-                                mppt new_mppt;
-                                new_mppt.Pdc(value);
-                                mpp.insert(std::make_pair(cls, new_mppt));
-                            }*/
-
-                            debug_watt((std::string("SPOT_PDC") + std::to_string(cls)).c_str(), value, datetime);
-
-                            calPdcTot += value;
-
-                            flags |= type;
+                                printf("%08X ?%d? %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
                             break;
 
-                        case DcMsVol: //SPOT_UDC1 / SPOT_UDC2
-                            // TODO: Remove cls 1/2
-                            if (cls == 1)
-                            {
-                                Udc1 = value;
-                            }
-                            if (cls == 2)
-                            {
-                                Udc2 = value;
-                            }
+                        case DT_STATUS:
+                        {
+                            for (const auto &tag : getattribute(recptr))
+                                printf("%08X %d %s %s: '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), tagdefs.getDesc(tag,"???").c_str());
+                        }
+                        break;
 
-                            it = mpp.find((uint8_t)cls);
-                            if (it != mpp.end())
-                                it->second.Udc(value);
+                        case DT_STRING:
+                        {
+                            char str[40];
+                            strncpy(str, (char*)recptr + 8, recordsize - 8);
+                            printf("%08X %d %s %s: '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), str);
+                        }
+                        break;
+
+                        case DT_SLONG:
+                            if (recordsize == 16)
+                            {
+                                printf("%08X %d %s '%s' %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), s64_tostring(get_longlong(recptr + 8)).c_str());
+                            }
+                            else if (recordsize == 28)
+                            {
+                                printf("%08X %d %s '%s' %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
+                                       s32_tostring(get_long(recptr + 8)).c_str(),
+                                       s32_tostring(get_long(recptr + 12)).c_str(),
+                                       s32_tostring(get_long(recptr + 16)).c_str(),
+                                       s32_tostring(get_long(recptr + 20)).c_str()
+                                      );
+
+                            }
+                            else if (recordsize == 40)
+                            {
+                                printf("%08X %d %s '%s' %s %s %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
+                                       s32_tostring(get_long(recptr + 8)).c_str(),
+                                       s32_tostring(get_long(recptr + 12)).c_str(),
+                                       s32_tostring(get_long(recptr + 16)).c_str(),
+                                       s32_tostring(get_long(recptr + 20)).c_str(),
+                                       s32_tostring(get_long(recptr + 24)).c_str(),
+                                       s32_tostring(get_long(recptr + 28)).c_str()
+                                      );
+                            }
                             else
-                            {
-                                mppt new_mppt;
-                                new_mppt.Udc(value);
-                                mpp.insert(std::make_pair(cls, new_mppt));
-                            }
-
-                            debug_volt((std::string("SPOT_UDC") + std::to_string(cls)).c_str(), value, datetime);
-
-                            flags |= type;
-                            break;
-
-                        case DcMsAmp: //SPOT_IDC1 / SPOT_IDC2
-                            // TODO: Remove cls 1/2
-                            if (cls == 1)
-                            {
-                                Idc1 = value;
-                            }
-                            if (cls == 2)
-                            {
-                                Idc2 = value;
-                            }
-
-                            it = mpp.find((uint8_t)cls);
-                            if (it != mpp.end())
-                                it->second.Idc(value);
-                            else
-                            {
-                                mppt new_mppt;
-                                new_mppt.Idc(value);
-                                mpp.insert(std::make_pair(cls, new_mppt));
-                            }
-
-                            debug_amp((std::string("SPOT_IDC") + std::to_string(cls)).c_str(), value, datetime);
-
-                            flags |= type;
-                            break;
-
-                        case MeteringTotWhOut: //SPOT_ETOTAL
-                            //In case SPOT_ETODAY missing, this function gives us inverter time (eg: SUNNY TRIPOWER 6.0)
-                            InverterDatetime = datetime;
-                            ETotal = value64;
-                            flags |= type;
-                            debug_kwh("SPOT_ETOTAL", value64, datetime);
-                            break;
-
-                        case MeteringDyWhOut: //SPOT_ETODAY
-                            //This function gives us the current inverter time
-                            InverterDatetime = datetime;
-                            EToday = value64;
-                            flags |= type;
-                            debug_kwh("SPOT_ETODAY", value64, datetime);
-                            break;
-
-                        case MeteringTotOpTms: //SPOT_OPERTM
-                            OperationTime = value64;
-                            flags |= type;
-                            debug_hour("SPOT_OPERTM", value64, datetime);
-                            break;
-
-                        case MeteringTotFeedTms: //SPOT_FEEDTM
-                            FeedInTime = value64;
-                            flags |= type;
-                            debug_hour("SPOT_FEEDTM", value64, datetime);
-                            break;
-
-                        case NameplateLocation: //INV_NAME
-                            //This function gives us the time when the inverter was switched on
-                            WakeupTime = datetime;
-                            DeviceName = std::string((char *)recptr + 8, strnlen((char *)recptr + 8, recordsize - 8)); // Fix #506
-                            flags |= type;
-                            debug_text("INV_NAME", DeviceName.c_str(), datetime);
-                            break;
-
-                        case NameplatePkgRev: //INV_SWVER
-                            SWVersion = version_tostring(get_long(recptr + 24));
-                            flags |= type;
-                            debug_text("INV_SWVER", SWVersion.c_str(), datetime);
-                            break;
-
-                        case NameplateModel: //INV_TYPE
-                        {
-                            auto attr = getattribute(recptr);
-                            if (attr.size() > 0)
-                            {
-                                DeviceType = tagdefs.getDesc(attr.front());
-                                if (DeviceType.empty())
-                                {
-                                    DeviceType = "UNKNOWN TYPE";
-                                    printf("ID='%d'\n", attr.front());
-                                }
-                                flags |= type;
-                                debug_text("INV_TYPE", DeviceType.c_str(), datetime);
-                            }
-                            break;
-                        }
-
-                        case NameplateMainModel: //INV_CLASS
-                        {
-                            auto attr = getattribute(recptr);
-                            if (attr.size() > 0)
-                            {
-                                DevClass = (DEVICECLASS)attr.front();
-                                DeviceClass = tagdefs.getDesc(DevClass, "UNKNOWN CLASS");
-
-                                flags |= type;
-                                debug_text("INV_CLASS", DeviceClass.c_str(), datetime);
-                            }
-                            break;
-                        }
-
-                        case OperationHealth: //INV_STATUS:
-                        {
-                            auto attr = getattribute(recptr);
-                            if (attr.size() > 0)
-                            {
-                                DeviceStatus = attr.front();
-                                flags |= type;
-                                debug_text("INV_STATUS", tagdefs.getDesc(DeviceStatus, "?").c_str(), datetime);
-                            }
-                            break;
-                        }
-
-                        case OperationGriSwStt: //INV_GRIDRELAY
-                        {
-                            auto attr = getattribute(recptr);
-                            if (attr.size() > 0)
-                            {
-                                GridRelayStatus = attr.front();
-                                flags |= type;
-                                debug_text("INV_GRIDRELAY", tagdefs.getDesc(GridRelayStatus, "?").c_str(), datetime);
-                            }
-                            break;
-                        }
-
-                        case BatChaStt:
-                            BatChaStt = value;
-                            flags |= type;
-                            break;
-
-                        case BatDiagCapacThrpCnt:
-                            BatDiagCapacThrpCnt = value;
-                            flags |= type;
-                            break;
-
-                        case BatDiagTotAhIn:
-                            BatDiagTotAhIn = value;
-                            flags |= type;
-                            break;
-
-                        case BatDiagTotAhOut:
-                            BatDiagTotAhOut = value;
-                            flags |= type;
-                            break;
-
-                        case BatTmpVal:
-                            BatTmpVal = value;
-                            flags |= type;
-                            break;
-
-                        case BatVol:
-                            BatVol = value;
-                            flags |= type;
-                            break;
-
-                        case BatAmp:
-                            BatAmp = value;
-                            flags |= type;
-                            break;
-
-                        case CoolsysTmpNom:
-                            Temperature = value;
-                            flags |= type;
-                            break;
-
-                        case MeteringGridMsTotWOut:
-                            MeteringGridMsTotWOut = value;
-                            break;
-
-                        case MeteringGridMsTotWIn:
-                            MeteringGridMsTotWIn = value;
+                                printf("%08X ?%d? %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
                             break;
 
                         default:
-                            /*
-                             // tagdefs -> messages
-                            switch (dataType)
-                            {
-                            case DT_ULONG:
-                                if (recordsize == 16)
-                                {
-                                    printf("%08X %d %s '%s' %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), u64_tostring(get_longlong(recptr + 8)).c_str());
-                                }
-                                else if (recordsize == 28)
-                                {
-                                    printf("%08X %d %s '%s' %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
-                                           u32_tostring(get_long(recptr + 8)).c_str(),
-                                           u32_tostring(get_long(recptr + 12)).c_str(),
-                                           u32_tostring(get_long(recptr + 16)).c_str(),
-                                           u32_tostring(get_long(recptr + 20)).c_str()
-                                          );
-                                }
-                                else if (recordsize == 40)
-                                {
-                                    printf("%08X %d %s '%s' %s %s %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
-                                           u32_tostring(get_long(recptr + 8)).c_str(),
-                                           u32_tostring(get_long(recptr + 12)).c_str(),
-                                           u32_tostring(get_long(recptr + 16)).c_str(),
-                                           u32_tostring(get_long(recptr + 20)).c_str(),
-                                           u32_tostring(get_long(recptr + 24)).c_str(),
-                                           u32_tostring(get_long(recptr + 28)).c_str()
-                                          );
-                                }
-                                else
-                                    printf("%08X ?%d? %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
-                                break;
-
-                            case DT_STATUS:
-                            {
-                                for (const auto &tag : getattribute(recptr))
-                                    printf("%08X %d %s %s: '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), tagdefs.getDesc(tag,"???").c_str());
-                            }
+                            printf("%08X %d %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
                             break;
-
-                            case DT_STRING:
-                            {
-                                char str[40];
-                                strncpy(str, (char*)recptr + 8, recordsize - 8);
-                                printf("%08X %d %s %s: '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), str);
-                            }
-                            break;
-
-                            case DT_SLONG:
-                                if (recordsize == 16)
-                                {
-                                    printf("%08X %d %s '%s' %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(), s64_tostring(get_longlong(recptr + 8)).c_str());
-                                }
-                                else if (recordsize == 28)
-                                {
-                                    printf("%08X %d %s '%s' %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
-                                           s32_tostring(get_long(recptr + 8)).c_str(),
-                                           s32_tostring(get_long(recptr + 12)).c_str(),
-                                           s32_tostring(get_long(recptr + 16)).c_str(),
-                                           s32_tostring(get_long(recptr + 20)).c_str()
-                                          );
-
-                                }
-                                else if (recordsize == 40)
-                                {
-                                    printf("%08X %d %s '%s' %s %s %s %s %s %s\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str(),
-                                           s32_tostring(get_long(recptr + 8)).c_str(),
-                                           s32_tostring(get_long(recptr + 12)).c_str(),
-                                           s32_tostring(get_long(recptr + 16)).c_str(),
-                                           s32_tostring(get_long(recptr + 20)).c_str(),
-                                           s32_tostring(get_long(recptr + 24)).c_str(),
-                                           s32_tostring(get_long(recptr + 28)).c_str()
-                                          );
-                                }
-                                else
-                                    printf("%08X ?%d? %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
-                                break;
-
-                            default:
-                                printf("%08X %d %s '%s'\n", code, recordsize, strtok(ctime(&datetime), "\n"), tagdefs.getDescForLRI(lri).c_str());
-                                break;
-                            }*/
-                            break;
-                        }
+                        }*/
+                        break;
                     }
                 }
-            }
-            else
-            {
-                if (DEBUG_HIGHEST) printf("Packet ID mismatch. Expected %d, received %d\n", pcktID, rcvpcktID);
+
+            } else {
+                printf("Packet ID mismatch. Expected %d, received %d\n", pcktID, rcvpcktID);
                 validPcktID = 0;
                 pcktcount = 0;
             }
-
         } while (pcktcount > 0);
     } while (validPcktID ==  0);
 

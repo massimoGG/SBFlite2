@@ -1,5 +1,8 @@
 #include "Ethernet.h"
 
+#include "sbflite.h"
+#include "types.h"
+
 void HexDump(unsigned char *buf, int count, int radix)
 {
     int i, j;

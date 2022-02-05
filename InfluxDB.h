@@ -3,6 +3,13 @@
 
 #include <iostream>
 #include <string.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <signal.h>
 
 class InfluxDB
 {
@@ -22,7 +29,7 @@ private:
 public:
     ~InfluxDB();
     int open(const std::string ipaddress, const unsigned short port, const std::string organisation, const std::string bucket, const std::string token);
-    int close(void);
+    void close(void);
     int send();
 
     InfluxDB addMeasurement(const std::string name);
