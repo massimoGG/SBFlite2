@@ -1,5 +1,4 @@
 #include "Ethernet.h"
-
 #include "types.h"
 
 #include <iostream>
@@ -27,25 +26,6 @@ unsigned char CommBuf[COMMBUFSIZE];
 int sock;
 int MAX_CommBuf;
 struct sockaddr_in addr_in, addr_out;
-
-unsigned char  RootDeviceAddress[6]= {0, 0, 0, 0, 0, 0};	//Hold byte array with BT address of primary inverter
-unsigned char  LocalBTAddress[6] = {0, 0, 0, 0, 0, 0};		//Hold byte array with BT address of local adapter
-unsigned char  addr_broadcast[6] = {0, 0, 0, 0, 0, 0};
-unsigned char  addr_unknown[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
-unsigned short AppSUSyID;
-unsigned long  AppSerial;
-const unsigned short anySUSyID = 0xFFFF;
-const unsigned long anySerial = 0xFFFFFFFF;
-
-unsigned int cmdcode = 0;
-
-int packetposition = 0;
-int FCSChecksum = 0xffff;
-unsigned short pcktID = 1;
-
-#define maxpcktBufsize 520
-unsigned char pcktBuf[maxpcktBufsize];
-
 
 void HexDump(unsigned char *buf, int count, int radix)
 {
@@ -354,6 +334,23 @@ short get_short(BYTE *buf)
     return shrt;
 }
 
+void writePacket(unsigned char *buf, unsigned char longwords, unsigned char ctrl, unsigned short ctrl2, unsigned short dstSUSyID, unsigned long dstSerial)
+{
+	writeLong(buf, ETH_L2SIGNATURE);
+
+    writeByte(buf, longwords);
+    writeByte(buf, ctrl);
+    writeShort(buf, dstSUSyID);
+    writeLong(buf, dstSerial);
+    writeShort(buf, ctrl2);
+    writeShort(buf, AppSUSyID);
+    writeLong(buf, AppSerial);
+    writeShort(buf, ctrl2);
+    writeShort(buf, 0);
+    writeShort(buf, 0);
+    writeShort(buf, pcktID | 0x8000);
+}
+
 void writePacketHeader(unsigned char *buf, const unsigned int control, const unsigned char *destaddress)
 {
     packetposition = 0;
@@ -364,6 +361,11 @@ void writePacketHeader(unsigned char *buf, const unsigned int control, const uns
     writeLong(buf, 0x01000000);
     writeByte(buf, 0);
     writeByte(buf, 0);          // Placeholder for packet length
+}
+
+void writePacketTrailer(unsigned char *btbuffer)
+{
+   	writeLong(btbuffer, 0);
 }
 
 void writePacketLength(unsigned char *buf)

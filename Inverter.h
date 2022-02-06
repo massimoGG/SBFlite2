@@ -1,8 +1,24 @@
-#pragma once
-#ifndef __inverter_h_
-#define __inverter_h_
+#ifndef __HEADER_INVERTER
+#define __HEADER_INVERTER
 
 #include "types.h"
+
+extern unsigned int cmdcode;
+extern int packetposition;
+extern int FCSChecksum;
+extern unsigned short pcktID;
+
+extern unsigned char pcktBuf[];
+
+extern unsigned char  RootDeviceAddress[6];
+extern unsigned char  LocalBTAddress[6];
+extern unsigned char  addr_broadcast[6];
+extern unsigned char  addr_unknown[6];
+extern unsigned short AppSUSyID;
+extern unsigned long  AppSerial;
+extern const unsigned short anySUSyID;
+extern const unsigned long anySerial;
+#define ETH_L2SIGNATURE 0x65601000
 
 //Wellknown SUSyID's
 #define SID_MULTIGATE	175

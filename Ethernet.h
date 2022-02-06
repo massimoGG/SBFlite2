@@ -1,11 +1,24 @@
-#pragma once
-#ifndef __ethernet_h_
-#define __ethernet_h_
+#ifndef __HEADER_ETHERNET
+#define __HEADER_ETHERNET
 
 #include "types.h"
-
 #include <netinet/in.h>
 
+extern unsigned int cmdcode;
+extern int packetposition;
+extern int FCSChecksum;
+extern unsigned short pcktID;
+
+extern unsigned char pcktBuf[];
+
+extern unsigned char  RootDeviceAddress[6];
+extern unsigned char  LocalBTAddress[6];
+extern unsigned char  addr_broadcast[6];
+extern unsigned char  addr_unknown[6];
+extern unsigned short AppSUSyID;
+extern unsigned long  AppSerial;
+extern const unsigned short anySUSyID;
+extern const unsigned long anySerial;
 #define ETH_L2SIGNATURE 0x65601000
 
 const unsigned short fcstab[256] =

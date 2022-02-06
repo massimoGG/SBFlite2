@@ -19,10 +19,10 @@ $(OBJDIR)%.o: %.cpp
 $(TARGET): $(OBJECTS)
 	$(CC) $^ $(LDFLAGS) -o $@ -Wl,-Bdynamic $(addprefix -l,$(LIBS))
 
+.PHONY: clean
+clean:
+	rm $(OBJDIR)*
 
 # $(output) $(source)
 #	$(CC) -o $(output) $(CFLAGS) $(addprefix -l,$(LIBS)) $(source)
 
-.PHONY: clean
-clean :
-	rm $(OBJDIR)/*

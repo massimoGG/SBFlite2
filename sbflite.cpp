@@ -1,6 +1,12 @@
-#include <iostream>
+    /**
+     * Get list of fixed IPs
+     * Create that many inverter objects
+     * iterate through -> inverter.process();
+     * inverter.getInverterData() ? and then store to database?
+     */#include <iostream>
 #include <vector>
 
+#include "sbflite.h"
 #include "Ethernet.h"
 #include "Inverter.h"
 
