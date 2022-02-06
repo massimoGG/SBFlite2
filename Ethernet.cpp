@@ -1,7 +1,51 @@
 #include "Ethernet.h"
 
-#include "sbflite.h"
 #include "types.h"
+
+#include <iostream>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <errno.h>
+#include <sys/types.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <fcntl.h>
+
+const char *IP_Broadcast = "239.12.255.254";
+
+#define COMMBUFSIZE 2048 // Size of Communications Buffer (Bluetooth/Ethernet)
+unsigned char CommBuf[COMMBUFSIZE];
+
+int sock;
+int MAX_CommBuf;
+struct sockaddr_in addr_in, addr_out;
+
+unsigned char  RootDeviceAddress[6]= {0, 0, 0, 0, 0, 0};	//Hold byte array with BT address of primary inverter
+unsigned char  LocalBTAddress[6] = {0, 0, 0, 0, 0, 0};		//Hold byte array with BT address of local adapter
+unsigned char  addr_broadcast[6] = {0, 0, 0, 0, 0, 0};
+unsigned char  addr_unknown[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+unsigned short AppSUSyID;
+unsigned long  AppSerial;
+const unsigned short anySUSyID = 0xFFFF;
+const unsigned long anySerial = 0xFFFFFFFF;
+
+unsigned int cmdcode = 0;
+
+int packetposition = 0;
+int FCSChecksum = 0xffff;
+unsigned short pcktID = 1;
+
+#define maxpcktBufsize 520
+unsigned char pcktBuf[maxpcktBufsize];
+
 
 void HexDump(unsigned char *buf, int count, int radix)
 {
@@ -140,7 +184,6 @@ int ethClose()
     }
     return 0;
 }
-
 
 E_SBFSPOT ethGetPacket(void)
 {
@@ -310,8 +353,6 @@ short get_short(BYTE *buf)
 
     return shrt;
 }
-
-
 
 void writePacketHeader(unsigned char *buf, const unsigned int control, const unsigned char *destaddress)
 {

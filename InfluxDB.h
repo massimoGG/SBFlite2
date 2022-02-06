@@ -1,15 +1,8 @@
+#pragma once
 #ifndef __influxdb_h_
 #define __influxdb_h_
 
 #include <iostream>
-#include <string.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
 
 class InfluxDB
 {

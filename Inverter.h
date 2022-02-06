@@ -1,14 +1,8 @@
+#pragma once
 #ifndef __inverter_h_
 #define __inverter_h_
 
 #include "types.h"
-
-#include <iostream>
-#include <vector>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 
 //Wellknown SUSyID's
 #define SID_MULTIGATE	175
