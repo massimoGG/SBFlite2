@@ -1,12 +1,12 @@
 /** Includes */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <array>
 
 #include "error_codes.hpp"
 #include "influx.hpp"
-#include "modbus.h"
+#include "modbus.hpp"
 #include "inverter.hpp"
 
 /** Local Typedefs */
@@ -62,24 +62,34 @@ int main(int argc, char *argv[])
 
 	cout << "Connecting to Inverters...\n";
 
-	// Connect to clients
-	SMA_Inverter sb3000 = {
-		.Ip = strdup("172.19.30.0"),
-		.Port = 502,
-		.Name = strdup("SB3000TL-21"),
+	/** Inverters */
+	std::array<SMA_Inverter, 2> aInverters{
+		(SMA_Inverter){
+			.Ip = strdup("172.19.30.0"),
+			.Port = 502,
+			.Name = strdup("SB3000TL-21")},
+		(SMA_Inverter){
+			.Ip = strdup("172.19.40.0"),
+			.Port = 502,
+			.Name = strdup("SB4000TL-21")},
 	};
+
+	// Connect to clients
 	modbus_t *sb3000_conn = modbus_connect_tcp(sb3000.Ip, sb3000.Port);
 	cout << "Connected to SB3000TL";
 
-	SMA_Inverter sb4000 = {
-		.Ip = strdup("172.19.40.0"),
-		.Port = 502,
-		.Name = strdup("SB4000TL-21"),
-	};
-	modbus_t *sb4000_conn = modbus_connect_tcp(sb4000.Ip, sb4000.Port);
+	SMA_Inverter sb4000 =
+		modbus_t *sb4000_conn = modbus_connect_tcp(sb4000.Ip, sb4000.Port);
 	cout << "Connected to SB4000TL";
 
-	// TODO  HANDLE UNIX SIGNALS
+	for (;;)
+	{
+		for (auto const &inv : aInverters)
+		{
+			sb3000_conn
+		}
+	}
+
 	for (unsigned long long i = 0;; i++)
 	{
 		unsigned long currentTimestamp = time(NULL);
@@ -93,9 +103,7 @@ int main(int argc, char *argv[])
 			cout << to_string(sb4000) << "\n";
 		}
 
-		/**
-		 * Export to InfluxDB using the same timestamp
-		 */
+		/** Export to InfluxDB using the same timestamp */
 		int ret = exportToInflux(ifx, &sb3000, currentTimestamp);
 		ret = exportToInflux(ifx, &sb4000, currentTimestamp);
 		if (ret != 0)
