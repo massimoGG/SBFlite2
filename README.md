@@ -9,7 +9,9 @@ It has been continuously (+5 years as of writing this) tested on
 - SMA Sunny Boy 4000 with the webconnect module (SB4000TL-21)
 
 ### **Known bugs and limitations**
-For a list of known bugs, consult the [issues](https://github.com/massimoGG/SMA_MODBUS_REQUESTER/issues). If you find a bug, please create an [issue](https://github.com/massimoGG/SMA_MODBUS_REQUESTER/issues).    
+For a list of known bugs, consult the [issues](https://github.com/massimoGG/SMA_MODBUS_REQUESTER/issues). If you find a bug, please create an [issue](https://github.com/massimoGG/SMA_MODBUS_REQUESTER/issues).  
+
+Do not forget to enable Modbus TCP reading using the [Sunny explorer](https://www.sma.de/en/products/energy-management/sunny-explorer) application. Installer credentials might be needed for this.
 
 ### **Documentation**
 Refer to the [Wiki](https://github.com/massimoGG/SMA_MODBUS_REQUESTER/wiki) for documentation and FAQ.
