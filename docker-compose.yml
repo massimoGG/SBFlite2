@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   sma:
-    build: ./SMA_MODBUS_REQUESTER/
+    build: ./build/
     restart: unless-stopped
     environment:
       - INFLUX_HOST=influxdb

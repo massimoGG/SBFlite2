@@ -1,10 +1,10 @@
-#ifndef __INVERTER_HPP_
-#define __INVERTER_HPP
+#ifndef __INVERTER_HPP__
+#define __INVERTER_HPP__
 
 #include <string>
 
-/** Struct about one inverter */
-struct SMA_Inverter
+/** Inverter's state */
+struct SmaInverter_t
 {
     long unsigned DayYield;
     long unsigned TotalYield;
@@ -36,6 +36,6 @@ struct SMA_Inverter
     long unsigned ApparentPower; // 30813
 };
 
-std::string to_string(const SMA_Inverter &inv);
+std::string to_string(const SmaInverter_t &inv);
 
 #endif

@@ -1,21 +1,9 @@
-#ifndef __influxdb_h_
-#define __influxdb_h_
+#ifndef __INFLUX_HPP__
+#define __INFLUX_HPP__
 
-#include <cstring>
-#include <sstream>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <signal.h>
-#include <netdb.h>
-
-#include <map>
-#include <iostream>
 #include <vector>
 #include <optional>
+#include <string>
 #include "error_codes.hpp"
 #include "line.hpp"
 
@@ -29,7 +17,7 @@ public:
 
     error_e connectNow(void);
     error_e close(void);
-    error_e post(void);
+    error_e post(const std::string &body);
 
 private:
     /** The HTTP buffer size */
@@ -43,8 +31,6 @@ private:
     std::string m_org;
     std::string m_bucket;
     std::string m_token;
-
-    InfluxLine m_line;
 };
 
 #endif

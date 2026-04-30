@@ -2,8 +2,8 @@
  * @file error_codes.hpp
  * @brief
  */
-#ifndef __ERROR_CODES_HPP_
-#define __ERROR_CODES_HPP_
+#ifndef __ERROR_CODES_HPP__
+#define __ERROR_CODES_HPP__
 
 /** @brief error flags */
 enum error_e

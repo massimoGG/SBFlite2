@@ -2,12 +2,15 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <array>
+#include <unistd.h> // for sleep()
 
-#include "error_codes.hpp"
-#include "influx.hpp"
-#include "modbus.hpp"
-#include "inverter.hpp"
+#include <error_codes.hpp>
+#include <influx.hpp>
+#include <modbus.hpp>
+#include <inverter.hpp>
+#include <line.hpp>
 
 /** Local Typedefs */
 struct InfluxConfig
@@ -34,15 +37,22 @@ static unsigned int s_interval = 10;
 
 /** Prototypes */
 error_e processEnvVariables(InfluxConfig &);
-error_e processInverter(SMA_Inverter &, modbus_t &);
-error_e exportToInflux(Influx &, const SMA_Inverter &, unsigned long);
+error_e processInverter(SmaInverter_t &, modbus_t &);
+error_e exportToInflux(Influx &, const SmaInverter_t &, unsigned long);
 
 /** Public functions */
 
+/**
+ * @brief main function
+ * @param argc
+ * @param argv
+ * @return int
+ */
 int main(int argc, char *argv[])
 {
 	using namespace std;
 
+	/* The current InfluxDB config */
 	InfluxConfig influxCfg;
 
 	if (eError_ok != processEnvVariables(influxCfg))
@@ -50,64 +60,60 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	/**
-	 * Connect to InfluxDB
-	 */
+	/** Connect to InfluxDB */
 	Influx ifx(influxCfg.host, influxCfg.port, influxCfg.org, influxCfg.bucket, influxCfg.token);
-	if (ifx.connectNow() != 0)
+	if (eError_ok != ifx.connectNow())
 	{
 		cerr << "main: InfluxDB connection failed\n";
-		return -1;
+		return EXIT_FAILURE;
 	}
 
 	cout << "Connecting to Inverters...\n";
 
+	/**
+	 * @note the following is legacy code. It will all be reimplemented as the following
+	 * modbus class
+	 * SmaInverter class(Accepting a Modbus interface for communication with inverter)
+	 */
 	/** Inverters */
-	std::array<SMA_Inverter, 2> aInverters{
-		(SMA_Inverter){
+	std::array<SmaInverter_t, 2> aInverters{
+		(SmaInverter_t){
 			.Ip = strdup("172.19.30.0"),
-			.Port = 502,
+			.Port = eModbus_port,
 			.Name = strdup("SB3000TL-21")},
-		(SMA_Inverter){
+		(SmaInverter_t){
 			.Ip = strdup("172.19.40.0"),
-			.Port = 502,
+			.Port = eModbus_port,
 			.Name = strdup("SB4000TL-21")},
 	};
 
-	// Connect to clients
-	modbus_t *sb3000_conn = modbus_connect_tcp(sb3000.Ip, sb3000.Port);
-	cout << "Connected to SB3000TL";
-
-	SMA_Inverter sb4000 =
-		modbus_t *sb4000_conn = modbus_connect_tcp(sb4000.Ip, sb4000.Port);
-	cout << "Connected to SB4000TL";
+	/* This is all temporary */
+	std::array<modbus_t *, 2> aModbusConnections{
+		modbus_connect_tcp(aInverters[0].Ip, aInverters[0].Port),
+		modbus_connect_tcp(aInverters[1].Ip, aInverters[1].Port),
+	};
 
 	for (;;)
 	{
-		for (auto const &inv : aInverters)
-		{
-			sb3000_conn
-		}
-	}
+		error_e ret = eError_ok;
 
-	for (unsigned long long i = 0;; i++)
-	{
 		unsigned long currentTimestamp = time(NULL);
 
-		processInverter(sb3000, *sb3000_conn);
-		processInverter(sb4000, *sb4000_conn);
+		processInverter(aInverters[0], *aModbusConnections[0]);
+		processInverter(aInverters[1], *aModbusConnections[1]);
 
 		if (s_debug)
 		{
-			cout << to_string(sb3000) << "\n";
-			cout << to_string(sb4000) << "\n";
+			cout << to_string(aInverters[0]) << "\n";
+			cout << to_string(aInverters[1]) << "\n";
 		}
 
 		/** Export to InfluxDB using the same timestamp */
-		int ret = exportToInflux(ifx, &sb3000, currentTimestamp);
-		ret = exportToInflux(ifx, &sb4000, currentTimestamp);
-		if (ret != 0)
+		ret = exportToInflux(ifx, aInverters[0], currentTimestamp);
+		ret = exportToInflux(ifx, aInverters[1], currentTimestamp);
+		if (eError_ok != ret)
 		{
+			cerr << "Error while exporting data to Influx\n";
 			break;
 			// Abort if connection with Influx lost
 		}
@@ -115,10 +121,13 @@ int main(int argc, char *argv[])
 		sleep(s_interval);
 	}
 
+#if 0
+/* should move to the destructor of the modbus unique ptr*/
 	modbus_close(sb3000_conn);
 	modbus_close(sb4000_conn);
+#endif
 
-	return 0;
+	return EXIT_SUCCESS;
 }
 
 /**
@@ -141,20 +150,9 @@ error_e processEnvVariables(InfluxConfig &cfg)
 	if ((nullptr == cfg.host) || (nullptr == cfg.org) ||
 		(nullptr == cfg.bucket) || (nullptr == cfg.token))
 	{
-		cerr << "Missing required environment variables";
+		cerr << "Missing required environment variables\n";
 
 		return eError_failed;
-	}
-
-	const char *pPort = getenv("INFLUX_PORT");
-	if (nullptr == pPort)
-	{
-		/* Default HTTP port*/
-		cfg.port = 80;
-	}
-	else
-	{
-		cfg.port = atoi(pPort);
 	}
 
 	const char *pPort = getenv("INFLUX_PORT");
@@ -190,7 +188,7 @@ error_e processEnvVariables(InfluxConfig &cfg)
  * @retval eError_ok		if successfully processed inverter
  * @retval eError_failed	if unsuccessfull to process the given inverter
  */
-error_e processInverter(SMA_Inverter &inv, modbus_t &t)
+error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 {
 	modbus_regs regs;
 
@@ -297,55 +295,65 @@ error_e processInverter(SMA_Inverter &inv, modbus_t &t)
 	return eError_ok;
 }
 
-error_e exportToInflux(Influx &ifx, const SMA_Inverter &inv,
+/**
+ * @brief constructs the line protocol to send to Influx
+ * @param ifx
+ * @param inv
+ * @param currentTimestamp
+ * @return error_e from Influx.post()
+ */
+error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 					   unsigned long currentTimestamp)
 {
-	ifx.clear();
-
-	// can be a way to see if the inverter is off?
-	if (inv->Temperature > 10000)
+	/* Inverter's temperature is some MAX_INT value when it's in standby */
+	if (inv.Temperature > 10000)
 	{
-		return ifx.meas("measurement")
-			.tag("inverter", inv->Name)
-			.field("Condition", inv->Condition)
 
-			// .field("Heatsink", inv->HeatsinkTemperature)
-			.field("DayYield", inv->DayYield)
-			.field("TotalYield", inv->TotalYield)
+		/* Create Influx measurement */
+		InfluxLine line("measurement");
+		line.addTag("inverter", inv.Name);
+		line.addField("Condition", inv.Condition);
+		line.addField("Heatsink", inv.HeatsinkTemperature);
+		line.addField("DayYield", inv.DayYield);
+		line.addField("TotalYield", inv.TotalYield);
+		line.addField("GridRelay", inv.GridRelay);
+		line.addField("GridFreq", inv.GridFreq);
+		line.setTimestamp(currentTimestamp);
 
-			.field("GridRelay", inv->GridRelay)
-			.field("GridFreq", inv->GridFreq)
-
-			.timestamp(currentTimestamp)
-			.post();
+		return ifx.post(line.getLine());
 	}
+	else
+	{
 
-	return ifx.meas("measurement")
-		.tag("inverter", inv->Name)
-		.field("Condition", inv->Condition)
+		InfluxLine line("measurement");
+		line.addTag("inverter", inv.Name);
+		line.addField("Condition", inv.Condition);
+		line.addField("Temperature", inv.Temperature);
+		line.addField("Heatsink", inv.HeatsinkTemperature);
 
-		.field("Temperature", inv->Temperature)
-		// .field("Heatsink", inv->HeatsinkTemperature)
-		.field("DayYield", inv->DayYield)
-		.field("TotalYield", inv->TotalYield)
+		line.addField("DayYield", inv.DayYield);
+		line.addField("TotalYield", inv.TotalYield);
 
-		.field("Pac1", inv->Pac1)
-		.field("Pdc1", inv->Pdc1)
-		.field("Pdc2", inv->Pdc2)
+		line.addField("GridRelay", inv.GridRelay);
+		line.addField("GridFreq", inv.GridFreq);
 
-		.field("Uac1", inv->Uac1)
-		.field("Udc1", inv->Udc1)
-		.field("Udc2", inv->Udc2)
+		line.addField("Pac1", inv.Pac1);
+		line.addField("Pdc1", inv.Pdc1);
+		line.addField("Pdc2", inv.Pdc2);
 
-		.field("Iac1", inv->Iac1)
-		.field("Idc1", inv->Idc1)
-		.field("Idc2", inv->Idc2)
+		line.addField("Uac1", inv.Uac1);
+		line.addField("Udc1", inv.Udc1);
+		line.addField("Udc2", inv.Udc2);
 
-		.field("GridRelay", inv->GridRelay)
-		.field("GridFreq", inv->GridFreq)
-		.field("ReactivePower", inv->ReactivePower)
-		.field("ApparentPower", inv->ApparentPower)
+		line.addField("Iac1", inv.Iac1);
+		line.addField("Idc1", inv.Idc1);
+		line.addField("Idc2", inv.Idc2);
 
-		.timestamp(currentTimestamp)
-		.post();
+		line.addField("ReactivePower", inv.ReactivePower);
+		line.addField("ApparentPower", inv.ApparentPower);
+
+		line.setTimestamp(currentTimestamp);
+
+		return ifx.post(line.getLine());
+	}
 }

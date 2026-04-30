@@ -3,13 +3,24 @@
  * @brief InfluxDB LineProtocol class implementation
  */
 
+#include <iostream>
+#include <cstring> // memset
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <signal.h>
+#include <netdb.h>
+
 #include "influx.hpp"
 
 /** Static */
 const unsigned int Influx::s_bufsize = 8196;
 
 /** Constructor */
-Influx::Influx(const std::string &host, const unsigned short port, const std::string &org, const std::string &bucket, const std::string &token) : m_host{host}, m_port{port}, m_org{org}, m_bucket{bucket}, m_token{token}
+Influx::Influx(const std::string &host, const unsigned short port, const std::string &org, const std::string &bucket, const std::string &token)
+    : m_host{host}, m_port{port}, m_org{org}, m_bucket{bucket}, m_token{token}
 {
     m_sockfd = std::nullopt;
 }
@@ -92,10 +103,8 @@ error_e Influx::close(void)
     return eError_ok;
 }
 
-error_e Influx::post(void)
+error_e Influx::post(const std::string &body)
 {
-    std::string body = m_line.get();
-
     char header[512];
     std::string buffer;
 
@@ -118,8 +127,10 @@ error_e Influx::post(void)
             this->connectNow();
         }
         else
-            return -1;
+        {
+            return eError_failed;
+        }
     }
 
-    return 0;
+    return eError_ok;
 }

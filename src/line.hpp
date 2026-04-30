@@ -3,7 +3,7 @@
  * @brief InfluxDB LineProtocol class
  */
 #ifndef __LINE_HPP__
-#define __LINE_HPP_
+#define __LINE_HPP__
 
 #include <string>
 #include <vector>

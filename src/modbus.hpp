@@ -1,11 +1,10 @@
 #ifndef __MODBUS_HPP__
 #define __MODBUS_HPP__
 
+#include <cstdint>
+
 #define RETRIES 3
 #define DEBUG 0
-
-typedef unsigned char uint8_t;
-typedef unsigned short uint16_t;
 
 #define MODBUS_READ_HOLDING_REGISTERS 0x03
 #define MODBUS_READ_INPUT_REGISTERS 0x04
@@ -22,6 +21,11 @@ enum
     MODBUS_EXCEPTION_ILLEGAL_FUNCTION = 0x01,
     MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS = 0x02,
     MODBUS_EXCEPTION_ILLEGAL_DATA_VALUE = 0x03,
+};
+
+enum
+{
+    eModbus_port = 502,
 };
 
 typedef struct

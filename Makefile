@@ -1,2 +1,3 @@
-cmake -B build
-
+all:
+	cmake -B build
+	(cd build && make)

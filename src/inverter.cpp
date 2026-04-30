@@ -10,7 +10,7 @@
  * @param inv
  * @returns string representation of given inverter
  */
-std::string to_string(const SMA_Inverter &inv)
+std::string to_string(const SmaInverter_t &inv)
 {
     using namespace std;
 
