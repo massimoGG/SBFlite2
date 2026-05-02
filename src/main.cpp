@@ -324,7 +324,6 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 	}
 	else
 	{
-
 		InfluxLine line("measurement");
 		line.addTag("inverter", inv.Name);
 		line.addField("Condition", inv.Condition);
