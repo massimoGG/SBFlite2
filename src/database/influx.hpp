@@ -4,8 +4,9 @@
 #include <vector>
 #include <optional>
 #include <string>
-#include "error_codes.hpp"
-#include "line.hpp"
+
+#include <error_codes.hpp>
+#include "influxline.hpp"
 
 class Influx
 {

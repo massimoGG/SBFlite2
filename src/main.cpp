@@ -7,10 +7,11 @@
 #include <unistd.h> // for sleep()
 
 #include <error_codes.hpp>
-#include <influx.hpp>
-#include <modbus.hpp>
-#include <inverter.hpp>
-#include <line.hpp>
+
+#include <database/influx.hpp>
+#include <database/influxline.hpp>
+#include <modbus/modbus.hpp>
+#include <inverter/inverter.hpp>
 
 /** Local Typedefs */
 struct InfluxConfig

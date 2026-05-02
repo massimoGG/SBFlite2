@@ -2,8 +2,8 @@
  * @file line.hpp
  * @brief InfluxDB LineProtocol class
  */
-#ifndef __LINE_HPP__
-#define __LINE_HPP__
+#ifndef __INFLUXLINE_HPP__
+#define __INFLUXLINE_HPP__
 
 #include <string>
 #include <vector>

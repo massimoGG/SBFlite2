@@ -9,11 +9,14 @@ add_executable(SBFlite)
 
 target_sources(SBFlite
     PUBLIC
-    ./src/influx.cpp
-    ./src/inverter.cpp
-    ./src/line.cpp
     ./src/main.cpp
-    ./src/modbus.cpp
+
+    ./src/modbus/modbus.cpp
+
+    ./src/inverter/inverter.cpp
+
+    ./src/database/influx.cpp
+    ./src/database/influxline.cpp
 )
 
 include_directories(SBFlite

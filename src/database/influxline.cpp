@@ -1,4 +1,4 @@
-#include "line.hpp"
+#include "influxline.hpp"
 
 /**
  * @brief creates a new measurement (and thus line)
