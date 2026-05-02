@@ -84,4 +84,18 @@ cmake -B build
 3. Set the required environment variables
 4. Run (or create a systemd configuration file pointing to) build/SBFlite 
 
+# Release history and roadmap
+## V2.1.0 - Reimplementation in C++
 
+## Modbus reimplementation
+At this point, this program implemented Modbus with a single request register per command.
+However, the Modbus protocol supports up to 125 registers being read at once. 
+
+This is what I want to tackle on, reimplement the Modbus interface so that it reqeusts all the registers I need at once for a way faster response.
+
+## - YAML Configuration
+Something I am still doing in this project is hard-coding my inverter's config. This should be reimplemented using a config parser so other users can easily adapt it to their setup.
+Allowing for flexible configuration and customization such as variable number of inverters, database choice, etc.
+
+## - MySQL database support
+The current implementation focusses on InfluxDB, however it should be fairly easy to also add MySQL.
