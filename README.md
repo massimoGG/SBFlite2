@@ -84,4 +84,11 @@ cmake -B build
 3. Set the required environment variables
 4. Run (or create a systemd configuration file pointing to) build/SBFlite 
 
+# Release history and roadmap
+## V2.1.0 - Reimplementation in C++
+## V2.2.0 - YAML Configuration
+Since V2.2.0 configuration has changed and is done using a YAML config.
+This allows for flexible configuration and customization such as variable number of inverters, database choice 
+
+## V2.3.0 - MySQL database support
 
