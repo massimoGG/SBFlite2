@@ -21,4 +21,5 @@ target_sources(SBFlite
 
 include_directories(SBFlite
     src/
+    inc/
 )
