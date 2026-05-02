@@ -158,8 +158,8 @@ error_e processEnvVariables(InfluxConfig &cfg)
 	const char *pPort = getenv("INFLUX_PORT");
 	if (nullptr == pPort)
 	{
-		/* Default HTTP port*/
-		cfg.port = 80;
+		/* Default Influx port*/
+		cfg.port = 8086;
 	}
 	else
 	{
