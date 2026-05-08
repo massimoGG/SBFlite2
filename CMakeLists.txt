@@ -14,8 +14,6 @@ target_compile_options(SBFlite
 
 target_sources(SBFlite
     PUBLIC
-    ./src/main.cpp
-
     ./src/config/config.cpp
 
     ./src/database/influx.cpp
@@ -24,6 +22,9 @@ target_sources(SBFlite
     ./src/inverter/inverter.cpp
 
     ./src/modbus/modbus.cpp
+    ./src/modbus/modbus.c
+
+    ./src/main.cpp
 )
 
 include_directories(SBFlite
