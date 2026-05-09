@@ -6,7 +6,7 @@
 #include <array>
 #include <unistd.h> // for sleep()
 
-#include <error_codes.hpp>
+#include <error_codes.h>
 
 #include <config/config.hpp>
 #include <database/influx.hpp>

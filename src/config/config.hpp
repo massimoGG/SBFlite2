@@ -3,7 +3,7 @@
 
 #include <vector>
 #include <string>
-#include <error_codes.hpp>
+#include <error_codes.h>
 
 /** @brief Influx configuration */
 struct InfluxConfig
