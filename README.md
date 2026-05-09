@@ -59,7 +59,7 @@ inverter,name=SB4000TL-21 Condition=307i,Temperature=30.000000,DayYield=1954.000
 > Clone this repository using the following command `git clone <url> --recurse-submodules` or if you already pulled, initialize the submodules with `git submodule update --init --recursive`
 
 ## Docker
-Simply install docker on your host, configure the TOML configuration file and run `docker compose up -d`
+Simply install docker on your host, configure the TOML configuration file at `/etc/sbflite/config.toml` and run `docker compose up -d`
 
 ## Binary
 1. Required Linux packages:

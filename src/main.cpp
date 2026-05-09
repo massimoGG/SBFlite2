@@ -8,42 +8,21 @@
 
 #include <error_codes.hpp>
 
+#include <config/config.hpp>
 #include <database/influx.hpp>
 #include <database/influxline.hpp>
 #include <inverter/inverter.hpp>
 #include <modbus/modbus.hpp>
 #include <modbus/modbus_sma.h>
 
-/** Local Typedefs */
-struct InfluxConfig
-{
-	/** String to host */
-	char *host;
-	/** Organisation */
-	char *org;
-	/** Bucket */
-	char *bucket;
-	/** Access token */
-	char *token;
-
-	/** HTTP port */
-	int port;
-};
-
-/** Local variables */
-/* Should we print debug logs */
+/** Globals */
 bool g_debug = false;
 
-/* How many seconds should we wait between requests */
-static unsigned int s_interval = 10;
-
 /** Prototypes */
-error_e processEnvVariables(InfluxConfig &);
 error_e processInverter(SmaInverter_t &, modbus_t &);
 error_e exportToInflux(Influx &, const SmaInverter_t &, unsigned long);
 
 /** Public functions */
-
 /**
  * @brief main function
  * @param argc
@@ -55,15 +34,18 @@ int main(int argc, char *argv[])
 	using namespace std;
 
 	/* The current InfluxDB config */
-	InfluxConfig influxCfg;
+	Configuration cfg{};
 
-	if (eError_ok != processEnvVariables(influxCfg))
+	if (eError_ok != getConfiguration(cfg))
 	{
 		exit(EXIT_FAILURE);
 	}
 
+	/** Set globals */
+	g_debug = cfg.debug;
+
 	/** Connect to InfluxDB */
-	Influx ifx(influxCfg.host, influxCfg.port, influxCfg.org, influxCfg.bucket, influxCfg.token);
+	Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token);
 	if (eError_ok != ifx.connectNow())
 	{
 		cerr << "main: InfluxDB connection failed\n";
@@ -71,57 +53,66 @@ int main(int argc, char *argv[])
 	}
 
 	cout << "Connecting to Inverters...\n";
-
 	/**
 	 * @note the following is legacy code. It will all be reimplemented as the following
 	 * modbus class
 	 * SmaInverter class(Accepting a Modbus interface for communication with inverter)
 	 */
 	/** Inverters */
-	std::array<SmaInverter_t, 2> aInverters{
-		(SmaInverter_t){
-			.Ip = strdup("172.19.30.0"),
+	std::vector<SmaInverter_t> aInverters;
+
+	for (const InverterConfig &invCfg : cfg.inverters)
+	{
+		aInverters.push_back((SmaInverter_t){
+			.Ip = invCfg.ip,
 			.Port = eModbus_port,
-			.Name = strdup("SB3000TL-21")},
-		(SmaInverter_t){
-			.Ip = strdup("172.19.40.0"),
-			.Port = eModbus_port,
-			.Name = strdup("SB4000TL-21")},
+			.Name = invCfg.name,
+		});
 	};
 
 	/* This is all temporary */
-	std::array<modbus_t *, 2> aModbusConnections{
-		modbus_connect_tcp(aInverters[0].Ip.c_str(), aInverters[0].Port),
-		modbus_connect_tcp(aInverters[1].Ip.c_str(), aInverters[1].Port),
-	};
+	std::vector<modbus_t *> aModbusConnections;
+
+	for (const SmaInverter_t &smaInverter : aInverters)
+	{
+		aModbusConnections.push_back(modbus_connect_tcp(smaInverter.Ip.c_str(), smaInverter.Port));
+	}
 
 	for (;;)
 	{
-		error_e ret = eError_ok;
 
 		unsigned long currentTimestamp = time(NULL);
 
-		if (processInverter(aInverters[0], *aModbusConnections[0]) != eError_ok)
+		for (int idx = 0; idx < aInverters.size(); idx++)
 		{
-			cerr << "Processing first inverter failed " << endl;
-			continue;
+			SmaInverter_t &inv = aInverters[idx];
+			modbus_t *modbus = aModbusConnections[idx];
+
+			if (processInverter(inv, *modbus) != eError_ok)
+			{
+				cerr << "Processing inverter failed " << endl;
+				continue;
+			}
 		}
-		if (processInverter(aInverters[1], *aModbusConnections[1]) != eError_ok)
+
+		if (cfg.debug)
 		{
 
-			cerr << "Processing second inverter failed " << endl;
-			continue;
-		}
-
-		if (g_debug)
-		{
-			cout << to_string(aInverters[0]) << "\n";
-			cout << to_string(aInverters[1]) << "\n";
+			for (int idx = 0; idx < aInverters.size(); idx++)
+			{
+				const SmaInverter_t &inv = aInverters[idx];
+				cout << to_string(inv) << "\n";
+			}
 		}
 
 		/** Export to InfluxDB using the same timestamp */
-		ret = exportToInflux(ifx, aInverters[0], currentTimestamp);
-		ret = exportToInflux(ifx, aInverters[1], currentTimestamp);
+		error_e ret = eError_ok;
+		for (int idx = 0; idx < aInverters.size(), ret == eError_ok; idx++)
+		{
+			const SmaInverter_t &inv = aInverters[idx];
+			ret = exportToInflux(ifx, inv, currentTimestamp);
+		}
+
 		if (eError_ok != ret)
 		{
 			cerr << "Error while exporting data to Influx\n";
@@ -129,9 +120,8 @@ int main(int argc, char *argv[])
 			// Abort if connection with Influx lost
 		}
 
-		sleep(s_interval);
+		sleep(cfg.interval);
 	}
-
 #if 0
 /* should move to the destructor of the modbus unique ptr*/
 	modbus_close(sb3000_conn);
@@ -139,57 +129,6 @@ int main(int argc, char *argv[])
 #endif
 
 	return EXIT_SUCCESS;
-}
-
-/**
- * @brief gets all required environment variables or fatals out
- * @param cfg               influx config to update with values
- * @retval eError_ok        if successfully fetched all required variables
- * @retval eError_failed    if missing required variables
- */
-error_e processEnvVariables(InfluxConfig &cfg)
-{
-	using namespace std;
-
-	cfg = {
-		.host = getenv("INFLUX_HOST"),
-		.org = getenv("INFLUX_ORGANISATION"),
-		.bucket = getenv("INFLUX_BUCKET"),
-		.token = getenv("INFLUX_TOKEN"),
-	};
-
-	if ((nullptr == cfg.host) || (nullptr == cfg.org) ||
-		(nullptr == cfg.bucket) || (nullptr == cfg.token))
-	{
-		cerr << "Missing required environment variables\n";
-
-		return eError_failed;
-	}
-
-	const char *pPort = getenv("INFLUX_PORT");
-	if (nullptr == pPort)
-	{
-		/* Default Influx port*/
-		cfg.port = 8086;
-	}
-	else
-	{
-		cfg.port = atoi(pPort);
-	}
-
-	const char *pInterval = getenv("INTERVAL");
-	if (nullptr != pInterval)
-	{
-		s_interval = atoi(pInterval);
-	}
-
-	/* If the debug flag is set */
-	if (nullptr != getenv("DEBUG"))
-	{
-		g_debug = true;
-	}
-
-	return eError_ok;
 }
 
 /**
@@ -361,4 +300,5 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 
 		return ifx.post(line.getLine());
 	}
+	return eError_ok;
 }

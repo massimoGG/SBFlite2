@@ -10,13 +10,7 @@ services:
     restart: unless-stopped
 
   sma:
-    build: ./build/
+    build: .
+    volumes:
+      - config.toml:/usr/src/config.toml
     restart: unless-stopped
-    environment:
-      - INFLUX_HOST=influxdb
-      - INFLUX_PORT=8086
-      - INFLUX_ORGANISATION=
-      - INFLUX_BUCKET=solar
-      - INFLUX_TOKEN=
-      - INTERVAL=15
-      - DEBUG=1
