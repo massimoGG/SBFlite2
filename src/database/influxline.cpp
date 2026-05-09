@@ -85,7 +85,7 @@ std::string InfluxLine::getLine(void)
     /* Append tags if any set */
     if (m_tags.size())
     {
-        ret += "," + getTags() + " ";
+        ret += getTags() + " ";
     }
 
     /* Append fields */
