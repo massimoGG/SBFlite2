@@ -25,6 +25,14 @@ public:
         return *this;
     }
 
+    /* Specialisation for int */
+    InfluxLine &addField(const std::string fieldKey, const int fieldValue)
+    {
+        /* Construct key/value pair */
+        m_fields.push_back(fieldKey + "=" + std::to_string(fieldValue) + 'i');
+        return *this;
+    }
+
     InfluxLine &setTimestamp(const unsigned long long time);
 
     std::string getLine(void);

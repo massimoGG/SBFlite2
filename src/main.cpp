@@ -90,8 +90,8 @@ int main(int argc, char *argv[])
 
 	/* This is all temporary */
 	std::array<modbus_t *, 2> aModbusConnections{
-		modbus_connect_tcp(aInverters[0].Ip, aInverters[0].Port),
-		modbus_connect_tcp(aInverters[1].Ip, aInverters[1].Port),
+		modbus_connect_tcp(aInverters[0].Ip.c_str(), aInverters[0].Port),
+		modbus_connect_tcp(aInverters[1].Ip.c_str(), aInverters[1].Port),
 	};
 
 	for (;;)
@@ -311,8 +311,8 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 	{
 
 		/* Create Influx measurement */
-		InfluxLine line("measurement");
-		line.addTag("inverter", inv.Name);
+		InfluxLine line("inverter");
+		line.addTag("name", inv.Name);
 		line.addField("Condition", inv.Condition);
 		line.addField("Heatsink", inv.HeatsinkTemperature);
 		line.addField("DayYield", inv.DayYield);
@@ -325,8 +325,8 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 	}
 	else
 	{
-		InfluxLine line("measurement");
-		line.addTag("inverter", inv.Name);
+		InfluxLine line("inverter");
+		line.addTag("name", inv.Name);
 		line.addField("Condition", inv.Condition);
 		line.addField("Temperature", inv.Temperature);
 		line.addField("Heatsink", inv.HeatsinkTemperature);
