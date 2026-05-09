@@ -10,6 +10,7 @@ port    = 8086
 org     = ""
 bucket  = ""
 token   = ""
+measurement = "inverter"
 
 [inverters]
 [inverters.sb3000TL]

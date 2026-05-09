@@ -51,7 +51,7 @@ error_e getConfiguration(Configuration &cfg)
             .org = toml::find<string>(data, "influx", "org"),
             .bucket = toml::find<string>(data, "influx", "bucket"),
             .token = toml::find<string>(data, "influx", "token"),
-        };
+            .measurement = toml::find<string>(data, "influx", "measurement")};
     }
     else
     {

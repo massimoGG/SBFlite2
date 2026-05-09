@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
 	g_debug = cfg.debug;
 
 	/** Connect to InfluxDB */
-	Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token);
+	Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token, cfg.influx.measurement);
 	if (eError_ok != ifx.connectNow())
 	{
 		cerr << "main: InfluxDB connection failed\n";
@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
 
 		unsigned long currentTimestamp = time(NULL);
 
-		for (int idx = 0; idx < aInverters.size(); idx++)
+		for (size_t idx = 0; idx < aInverters.size(); idx++)
 		{
 			SmaInverter_t &inv = aInverters[idx];
 			modbus_t *modbus = aModbusConnections[idx];
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
 		if (cfg.debug)
 		{
 
-			for (int idx = 0; idx < aInverters.size(); idx++)
+			for (size_t idx = 0; idx < aInverters.size(); idx++)
 			{
 				const SmaInverter_t &inv = aInverters[idx];
 				cout << to_string(inv) << "\n";
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
 		/** Export to InfluxDB using the same timestamp */
 		error_e ret = eError_ok;
-		for (int idx = 0; idx < aInverters.size(), ret == eError_ok; idx++)
+		for (size_t idx = 0; idx < aInverters.size() && ret == eError_ok; idx++)
 		{
 			const SmaInverter_t &inv = aInverters[idx];
 			ret = exportToInflux(ifx, inv, currentTimestamp);

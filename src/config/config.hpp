@@ -25,6 +25,9 @@ struct InfluxConfig
 
     /** @brief The Influx token */
     std::string token;
+
+    /** @brief Measurement name */
+    std::string measurement;
 };
 
 /** @brief Config for one inverter */
