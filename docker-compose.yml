@@ -1,16 +1,17 @@
 ---
 services:
   influxdb:
+    container_name: influxdb
     image: docker.io/influxdb:2.7.6
     ports:
       - 8086:8086
     volumes:
-      - /home/influxdb/influxdb2:/var/lib/influxdb2
-    user: 1001:1001
+      - ./influxdb2:/var/lib/influxdb2
     restart: unless-stopped
 
-  sma:
-    build: .
-    volumes:
-      - config.toml:/usr/src/config.toml
+  sbflite2:
+    container_name: SBFlite2
+    build: ./Solar/SBFlite2/
     restart: unless-stopped
+    volumes:
+      - ./config.toml:/etc/sbflite/config.toml 
