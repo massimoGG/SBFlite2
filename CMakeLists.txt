@@ -7,6 +7,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS true)
 
 add_executable(SBFlite)
 
+target_compile_options(SBFlite
+    PUBLIC
+    -Wall -Wno-exceptions
+)
+
 target_sources(SBFlite
     PUBLIC
     ./src/main.cpp
