@@ -32,7 +32,7 @@ struct InfluxConfig
 
 /** Local variables */
 /* Should we print debug logs */
-static bool s_debug = false;
+bool g_debug = false;
 
 /* How many seconds should we wait between requests */
 static unsigned int s_interval = 10;
@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		if (s_debug)
+		if (g_debug)
 		{
 			cout << to_string(aInverters[0]) << "\n";
 			cout << to_string(aInverters[1]) << "\n";
@@ -186,7 +186,7 @@ error_e processEnvVariables(InfluxConfig &cfg)
 	/* If the debug flag is set */
 	if (nullptr != getenv("DEBUG"))
 	{
-		s_debug = true;
+		g_debug = true;
 	}
 
 	return eError_ok;
