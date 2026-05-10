@@ -11,15 +11,18 @@ target_sources(SBFlite
     PUBLIC
     ./src/main.cpp
 
-    ./src/modbus/modbus.cpp
-
-    ./src/inverter/inverter.cpp
+    ./src/config/config.cpp
 
     ./src/database/influx.cpp
     ./src/database/influxline.cpp
+
+    ./src/inverter/inverter.cpp
+
+    ./src/modbus/modbus.cpp
 )
 
 include_directories(SBFlite
     src/
     inc/
+    submodules/toml11/include
 )

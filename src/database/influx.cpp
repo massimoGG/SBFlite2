@@ -22,8 +22,8 @@ extern bool g_debug;
 const unsigned int Influx::s_bufsize = 8196;
 
 /** Constructor */
-Influx::Influx(const std::string &host, const unsigned short port, const std::string &org, const std::string &bucket, const std::string &token)
-    : m_host{host}, m_port{port}, m_org{org}, m_bucket{bucket}, m_token{token}
+Influx::Influx(const std::string &host, const unsigned short port, const std::string &org, const std::string &bucket, const std::string &token, const std::string &measurement)
+    : m_host{host}, m_port{port}, m_org{org}, m_bucket{bucket}, m_token{token}, m_measurement{measurement}
 {
     m_sockfd = std::nullopt;
 }
@@ -142,4 +142,13 @@ error_e Influx::post(const std::string &body)
     }
 
     return eError_ok;
+}
+
+/**
+ * @brief gets the measurement name configured
+ * @return const std::string&
+ */
+const std::string &Influx::getMeasurement(void) const
+{
+    return m_measurement;
 }

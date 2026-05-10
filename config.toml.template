@@ -1,0 +1,22 @@
+[general]
+debug = false
+instance = "sbflite"
+interval = 10
+
+[influx]
+enabled = true
+host    = "influxdb"
+port    = 8086
+org     = ""
+bucket  = ""
+token   = ""
+measurement = "inverter"
+
+[inverters]
+[inverters.sb3000TL]
+ip = "172.19.30.0"
+name = "SB3000TL-21"
+
+[inverters.sb4000TL]
+ip = "172.19.40.0"
+name = "SB4000TL-21"
