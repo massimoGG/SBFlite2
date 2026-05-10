@@ -267,18 +267,18 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 	line.addTag("name", inv.Name);
 
 	line.addField("Condition", int(inv.Condition));
-	line.addField("GridRelay", int(inv.GridRelay));
 
 	line.addField("DayYield", inv.DayYield);
 	line.addField("TotalYield", inv.TotalYield);
 
-	/* Inverter's grid relay contactor is not closed -> Post only limited values */
+	/* Inverter's grid relay contactor is not closed -> Post only limited values, should find some other way*/
 	if (inv.GridRelay != eSmaModbusUtilityGridContactor_closed)
 	{
 		return ifx.post(line.getLine());
 	}
 	else
 	{
+		line.addField("GridRelay", int(inv.GridRelay));
 		line.addField("Temperature", inv.Temperature);
 
 		line.addField("GridFreq", inv.GridFreq);
