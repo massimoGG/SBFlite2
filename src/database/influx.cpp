@@ -15,6 +15,9 @@
 
 #include "influx.hpp"
 
+/** Global */
+extern bool g_debug;
+
 /** Static */
 const unsigned int Influx::s_bufsize = 8196;
 
@@ -114,6 +117,12 @@ error_e Influx::post(const std::string &body)
     // Combine header and body
     buffer = std::string(header) + body;
     size_t buffer_len = buffer.length();
+
+    /* Print influx in debug */
+    if (g_debug)
+    {
+        std::cout << buffer << std::endl;
+    }
 
     int rc = write(*m_sockfd, buffer.c_str(), buffer_len);
     if (rc < len)
