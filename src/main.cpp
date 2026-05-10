@@ -321,35 +321,27 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 					   unsigned long currentTimestamp)
 {
-	/* Inverter's temperature is some MAX_INT value when it's in standby */
-	if (inv.Temperature > 10000)
+	InfluxLine line("inverter");
+
+	line.setTimestamp(currentTimestamp);
+
+	line.addTag("name", inv.Name);
+
+	line.addField("Condition", int(inv.Condition));
+	line.addField("GridRelay", int(inv.GridRelay));
+
+	line.addField("DayYield", inv.DayYield);
+	line.addField("TotalYield", inv.TotalYield);
+
+	/* Inverter's grid relay contactor is not closed -> Post only limited values */
+	if (inv.GridRelay != eSmaModbusUtilityGridContactor_closed)
 	{
-
-		/* Create Influx measurement */
-		InfluxLine line("inverter");
-		line.addTag("name", inv.Name);
-		line.addField("Condition", inv.Condition);
-		line.addField("Heatsink", inv.HeatsinkTemperature);
-		line.addField("DayYield", inv.DayYield);
-		line.addField("TotalYield", inv.TotalYield);
-		line.addField("GridRelay", inv.GridRelay);
-		line.addField("GridFreq", inv.GridFreq);
-		line.setTimestamp(currentTimestamp);
-
 		return ifx.post(line.getLine());
 	}
 	else
 	{
-		InfluxLine line("inverter");
-		line.addTag("name", inv.Name);
-		line.addField("Condition", inv.Condition);
 		line.addField("Temperature", inv.Temperature);
-		line.addField("Heatsink", inv.HeatsinkTemperature);
 
-		line.addField("DayYield", inv.DayYield);
-		line.addField("TotalYield", inv.TotalYield);
-
-		line.addField("GridRelay", inv.GridRelay);
 		line.addField("GridFreq", inv.GridFreq);
 
 		line.addField("Pac1", inv.Pac1);
@@ -366,8 +358,6 @@ error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
 
 		line.addField("ReactivePower", inv.ReactivePower);
 		line.addField("ApparentPower", inv.ApparentPower);
-
-		line.setTimestamp(currentTimestamp);
 
 		return ifx.post(line.getLine());
 	}
