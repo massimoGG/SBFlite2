@@ -195,100 +195,103 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 
 	t.slave = 0x03; // 0 = broadcast, 3= my inverters
 
-	/**
-	 * Inverter Condition
-	 * 	35: Fault (Alm)
-	 *  303: Off (Off)
-	 *  307: Ok (Ok)
-	 *  455: Warning (Wrn)
-	 * */
 	regs = modbus_read_registers(&t, 30201, 4);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
 
+	/**
+	 * Inverter Condition -> U32; enum
+	 * 	35: Fault (Alm)
+	 *  303: Off (Off)
+	 *  307: Ok (Ok)
+	 *  455: Warning (Wrn)
+	 * */
 	inv.Condition = getValue(regs, 30201, 30201);
 
 	modbus_free_registers(regs);
 
-	/**
-	 * Grid Relay
-	 * 	51: Closed (Cls)
-	 *  311: Open (Opn)
-	 *  16777213: Information not available (NaNStt)
-	 */
 	regs = modbus_read_registers(&t, 30211, 16);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
+	/**
+	 * Utility grid contactor = U32; enum
+	 * 	51: Closed (Cls)
+	 *  311: Open (Opn)
+	 *  16777213: Information not available (NaNStt)
+	 */
 	inv.GridRelay = getValue(regs, 30211, 30217);
 
 	modbus_free_registers(regs);
 
-	/**
-	 * Total Yield and Day Yield
-	 */
 	regs = modbus_read_registers(&t, 30529, 54);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
 
+	/* Total Yield (Wh) U32; FIX0 */
 	inv.TotalYield = getValue(regs, 30529, 30529);
+	/* Energy fed in on the current day on all line conductors (Wh) U32; FIX0 */
 	inv.DayYield = getValue(regs, 30529, 30535);
 
 	modbus_free_registers(regs);
 
-	/**
-	 * DC AMP, VOLT, WATT A; AC Watt, L1-3, ACVOLTAGE L1-3
-	 * Grid freq, AC_R_POWER_L1-3, AC_A_POWER_L!-3
-	 */
 	regs = modbus_read_registers(&t, 30769, 52);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
+
+	/** DC current input 1 (A) S32; FIX3 */
 	inv.Udc1 = ((double)getValue(regs, 30769, 30771) / 100);
+	/** DC voltage input 1 (V) S32; FIX2 */
 	inv.Idc1 = ((double)getValue(regs, 30769, 30769) / 1000);
+	/** DC power input 1 (W) S32; FIX0 */
 	inv.Pdc1 = getValue(regs, 30769, 30773);
 
+	/** Line voltage, line conductor L1 to N (V) U32; FIX2 */
 	inv.Uac1 = ((double)getValue(regs, 30769, 30783) / 100);
+	/** Active power of line conductor L1 (W) S32; FIX0 */
 	inv.Pac1 = getValue(regs, 30769, 30775);
 
 	modbus_free_registers(regs);
 
-	/**
-	 * Grid Freq, Reactive Power, Apparent Power
-	 */
 	regs = modbus_read_registers(&t, 30803, 10);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
 
+	/** Power frequency (Hz) U32; FIX2 */
 	inv.GridFreq = ((double)getValue(regs, 30803, 30803) / 100); // Hz
-	inv.ReactivePower = getValue(regs, 30803, 30805);			 // VAr
-	inv.ApparentPower = getValue(regs, 30803, 30813);			 // VA
+	/** Reactive power on all line conductors (VAr) S32; FIX0 */
+	inv.ReactivePower = getValue(regs, 30803, 30805); // VAr
+	/** Apparent power on all line conductors (VA) S32; FIX0 */
+	inv.ApparentPower = getValue(regs, 30803, 30813); // VA
 
 	modbus_free_registers(regs);
 
-	/**
-	 * TEMPERATURE, DC AMP, VOLT, WATT B AMP_L1-3
-	 */
 	regs = modbus_read_registers(&t, 30953, 30);
 	if (regs == NULL)
 	{
 		return eError_failed;
 	}
 
+	/** Internal temperature (C) S32; TEMP */
 	inv.Temperature = getValue(regs, 30953, 30953) / 10;
 
+	/** DC voltage input 2 (V); S32; FIX2 */
 	inv.Udc2 = ((double)getValue(regs, 30953, 30959) / 100);
+	/** DC current input 2 (A); S32; FIX3 */
 	inv.Idc2 = ((double)getValue(regs, 30953, 30957) / 1000);
+	/** DC power input 2 (W); S32; FIX0 */
 	inv.Pdc2 = getValue(regs, 30953, 30961);
 
+	/** Line current of line conductor L1 (A);; S32; FIX3 */
 	inv.Iac1 = ((double)getValue(regs, 30953, 30977) / 1000);
 
 	modbus_free_registers(regs);

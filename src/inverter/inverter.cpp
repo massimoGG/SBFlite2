@@ -16,7 +16,7 @@ std::string to_string(const SmaInverter_t &inv)
 
     string ret{};
 
-    ret += "\n\n\n\033[1m---------------------------\nINVERTER - " + string(inv.Name) + "\n" + string(inv.Ip) + "%s\n---------------------------\033[0m\n";
+    ret += "\n\n\n\033[1m---------------------------\nINVERTER - " + string(inv.Name) + "\n" + string(inv.Ip) + "\n---------------------------\033[0m\n";
 
     ret += "Total yield: " + to_string(inv.TotalYield) + "Wh\n";
 
