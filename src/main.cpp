@@ -10,8 +10,9 @@
 
 #include <database/influx.hpp>
 #include <database/influxline.hpp>
-#include <modbus/modbus.hpp>
 #include <inverter/inverter.hpp>
+#include <modbus/modbus.hpp>
+#include <modbus/modbus_sma.h>
 
 /** Local Typedefs */
 struct InfluxConfig
@@ -201,14 +202,7 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 		return eError_failed;
 	}
 
-	/**
-	 * Inverter Condition -> U32; enum
-	 * 	35: Fault (Alm)
-	 *  303: Off (Off)
-	 *  307: Ok (Ok)
-	 *  455: Warning (Wrn)
-	 * */
-	inv.Condition = getValue(regs, 30201, 30201);
+	inv.Condition = static_cast<smaModbus_statusOfTheDevice_e>(getValue(regs, 30201, 30201));
 
 	modbus_free_registers(regs);
 
@@ -217,13 +211,8 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 	{
 		return eError_failed;
 	}
-	/**
-	 * Utility grid contactor = U32; enum
-	 * 	51: Closed (Cls)
-	 *  311: Open (Opn)
-	 *  16777213: Information not available (NaNStt)
-	 */
-	inv.GridRelay = getValue(regs, 30211, 30217);
+
+	inv.GridRelay = static_cast<smaModbus_utilityGridContactor_e>(getValue(regs, 30211, 30217));
 
 	modbus_free_registers(regs);
 
@@ -247,9 +236,9 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 	}
 
 	/** DC current input 1 (A) S32; FIX3 */
-	inv.Udc1 = ((double)getValue(regs, 30769, 30771) / 100);
-	/** DC voltage input 1 (V) S32; FIX2 */
 	inv.Idc1 = ((double)getValue(regs, 30769, 30769) / 1000);
+	/** DC voltage input 1 (V) S32; FIX2 */
+	inv.Udc1 = ((double)getValue(regs, 30769, 30771) / 100);
 	/** DC power input 1 (W) S32; FIX0 */
 	inv.Pdc1 = getValue(regs, 30769, 30773);
 
@@ -284,15 +273,29 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
 	/** Internal temperature (C) S32; TEMP */
 	inv.Temperature = getValue(regs, 30953, 30953) / 10;
 
-	/** DC voltage input 2 (V); S32; FIX2 */
-	inv.Udc2 = ((double)getValue(regs, 30953, 30959) / 100);
+	/** Heat sink temperature (C)  */
+	inv.HeatsinkTemperature = getValue(regs, 30953, 30953) / 10;
+
 	/** DC current input 2 (A); S32; FIX3 */
 	inv.Idc2 = ((double)getValue(regs, 30953, 30957) / 1000);
+	/** DC voltage input 2 (V); S32; FIX2 */
+	inv.Udc2 = ((double)getValue(regs, 30953, 30959) / 100);
 	/** DC power input 2 (W); S32; FIX0 */
 	inv.Pdc2 = getValue(regs, 30953, 30961);
 
-	/** Line current of line conductor L1 (A);; S32; FIX3 */
+	/** Line current of line conductor L1 (A); S32; FIX3 */
 	inv.Iac1 = ((double)getValue(regs, 30953, 30977) / 1000);
+
+	modbus_free_registers(regs);
+
+	regs = modbus_read_registers(&t, 34109, 2);
+	if (regs == NULL)
+	{
+		return eError_failed;
+	}
+
+	/** Heat sink temperature (C) S32; TEMP; 34109 */
+	inv.HeatsinkTemperature = ((double)getValue(regs, 34109, 34109) / 10);
 
 	modbus_free_registers(regs);
 
