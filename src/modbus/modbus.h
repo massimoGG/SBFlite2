@@ -8,6 +8,21 @@
 extern "C" {
 #endif
 
+/** @brief The MBAP Header */
+typedef struct __attribute__((packed)) modbusMbapHeader {
+    /** Transaction Identifier = identification of request/response */
+    uint16_t transactionIdentifier;
+
+    /** Protocol Identifier = 0 for MODBUS protocol */
+    uint16_t protocolIdentifier;
+
+    /** Length = number of following bytes including the Unit Identifier and Data Fields */
+    uint16_t length;
+
+    /** Unit Identifier = identification of a remote slave connected */
+    uint8_t unitIdentifier;
+} modbusMbapHeader_t;
+
 /** @brief MODBUS Function Codes */
 typedef enum modbusFunctionCodes {
     eFunctionCode_readCoils = 0x01,
