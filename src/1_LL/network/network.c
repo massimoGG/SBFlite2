@@ -114,8 +114,16 @@ error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
         .events = POLLIN,
     };
 
-    int ready = poll(&fds, 1, pHandle->timeout);
-    if (fds.revents | (POLLPRI | POLLERR | POLLHUP) != 0) {
+    const int sockfdsReady = poll(&fds, 1, pHandle->timeout);
+    if (sockfdsReady == -1) {
+        /* Error */
+        return eError_failed;
+    } else if (sockfdsReady == 0) {
+        /* Timeout*/
+        return eError_timeout;
+    }
+
+    if ((fds.revents | (POLLPRI | POLLERR | POLLHUP)) != 0) {
         /* Error with socket*/
         return eError_failed;
     }
