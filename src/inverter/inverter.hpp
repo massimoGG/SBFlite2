@@ -1,7 +1,7 @@
-#ifndef __INVERTER_HPP__
-#define __INVERTER_HPP__
+#ifndef INVERTER_HPP__
+#define INVERTER_HPP__
 
-#include <modbus/modbus_sma.h>
+#include <2_DRIVERS/modbus/modbus_sma.h>
 #include <string>
 
 /** Inverter's state */

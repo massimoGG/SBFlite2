@@ -9,11 +9,11 @@
 #include <error_codes.h>
 
 #include <config/config.hpp>
-#include <database/influx.hpp>
-#include <database/influxline.hpp>
+#include <2_DRIVERS/database/influx.hpp>
+#include <2_DRIVERS/database/influxline.hpp>
 #include <inverter/inverter.hpp>
-#include <modbus/modbus.hpp>
-#include <modbus/modbus_sma.h>
+#include <2_DRIVERS/modbus/modbus.hpp>
+#include <2_DRIVERS/modbus/modbus_sma.h>
 
 /** Globals */
 bool g_debug = false;
@@ -91,7 +91,7 @@ int main(int argc, char *argv[])
 			if (processInverter(inv, *modbus) != eError_ok)
 			{
 				cerr << "Processing inverter failed " << endl;
-				continue;
+				goto ERROR_HANDLER;
 			}
 		}
 
@@ -116,19 +116,20 @@ int main(int argc, char *argv[])
 		if (eError_ok != ret)
 		{
 			cerr << "Error while exporting data to Influx\n";
-			break;
-			// Abort if connection with Influx lost
+			goto ERROR_HANDLER;
 		}
 
 		sleep(cfg.interval);
 	}
-#if 0
-/* should move to the destructor of the modbus unique ptr*/
-	modbus_close(sb3000_conn);
-	modbus_close(sb4000_conn);
-#endif
 
-	return EXIT_SUCCESS;
+ERROR_HANDLER:
+	for (const auto &modbus : aModbusConnections)
+	{
+		modbus_close(modbus);
+	}
+	ifx.close();
+
+	return EXIT_FAILURE;
 }
 
 /**

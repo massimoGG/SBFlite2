@@ -14,15 +14,17 @@ target_compile_options(SBFlite
 
 target_sources(SBFlite
     PUBLIC
+
+    ./src/1_LL/network/network.c
+
+    ./src/2_DRIVERS/database/influx.cpp
+    ./src/2_DRIVERS/database/influxline.cpp
+
+    ./src/2_DRIVERS/modbus/modbus.cpp
+    ./src/2_DRIVERS/modbus/modbus.c
+
     ./src/config/config.cpp
-
-    ./src/database/influx.cpp
-    ./src/database/influxline.cpp
-
     ./src/inverter/inverter.cpp
-
-    ./src/modbus/modbus.cpp
-    ./src/modbus/modbus.c
 
     ./src/main.cpp
 )
