@@ -11,7 +11,6 @@ target_compile_options(SBFlite
     PUBLIC
     -Wall -Wno-exceptions
 )
-
 target_sources(SBFlite
     PUBLIC
 
@@ -28,9 +27,27 @@ target_sources(SBFlite
 
     ./src/main.cpp
 )
-
 include_directories(SBFlite
     src/
     inc/
     submodules/toml11/include
 )
+
+add_executable(mbcli)
+target_sources(mbcli
+    PUBLIC
+
+    ./src/1_LL/network/network.c
+
+    ./src/2_DRIVERS/modbus/modbus.c
+
+    ./src/inverter/inverter.cpp
+
+    ./src/cli.cpp
+
+)
+include_directories(mbcli
+    src/
+    inc/
+)
+
