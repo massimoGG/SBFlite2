@@ -5,49 +5,74 @@
 
 #include "modbus.h"
 #include <arpa/inet.h> // for htons and ntohs
+#include <stdio.h>
 #include <string.h>
 
 /**
- * @brief encodes the PDU on \p pBuf
- * @param pBuf      pointer to starting address of the whole packet's buffer
- * @returns int     length of PDU
- * @retval -1       on error
+ * @brief decodes the given buffer
+ * @param[in] pBuf          pointer to whole packet
+ * @param[in] bufferLength  length of buffer
+ * @param[in] pCallbacks    pointer to a collection of callbacks depending on the received PDU function code
+ * @retval eError_ok        successfully decoded MB packet
+ * @retval eError_failed    failed to decode
+ * @retval eError_invalid   invalid data
  */
-int modbus_encodePdu(uint8_t* pBuf, modbusFunctionCodes_e code, uint16_t startingAddress, uint16_t quantity)
+error_e
+modbus_decode(const uint8_t* pBuf, uint16_t bufferLength, modbusDecodeCbs_t* pCallbacks)
 {
+    /* decode MBAP */
+    modbusMbapHeader_t mbap = {};
 
-    /* Fill header with big-endian representation */
-    const modbusPduRequestHeader_t header = {
-        .functionCode = code,
-        .startingAddress = htons(startingAddress),
-        .quantity = htons(quantity),
-    };
+    error_e ret = modbus_decodeMbap(pBuf, bufferLength, &mbap);
+    if (eError_ok != ret) {
+        return ret;
+    }
 
-    memcpy(pBuf + c_modbusMbapHeaderLength, &header, c_modbusPduRequestHeaderLength);
+    /* decode PDU */
+    modbusPduResponseHeader_t pdu = {};
 
-    return c_modbusPduRequestHeaderLength;
-}
+    ret = modbus_decodePdu(pBuf, bufferLength, &pdu);
+    if (eError_ok != ret) {
+        return eError_invalidData;
+    }
 
-/**
- * @brief encodes the MBAP header on \p pBuf
- * @param pBuf              pointer to starting address of the whole packet's buffer
- * @param transactionID     transaction ID
- * @param pduLength         total length of the PDU
- * @return int              total length of whole encoded packet
- */
-int modbus_encodeMbap(uint8_t* pBuf, uint16_t transactionID, uint16_t pduLength)
-{
-    const modbusMbapHeader_t header = {
-        .transactionIdentifier = htons(transactionID),
-        /* 0 for MB */
-        .protocolIdentifier = htons(0U),
-        /* Length of PDU + unit identifier */
-        .length = htons(pduLength + 1),
-        /* 0xFF for TCP */
-        .unitIdentifier = 0xFF,
-    };
+    /* Depending on response code */
+    if ((pdu.code & eModbusFunctionCode_exceptionOffset) != 0) {
 
-    memcpy(pBuf, &header, c_modbusMbapHeaderLength);
+        modbusPduExceptionResponseHeader_t exceptionheader = {};
 
-    return c_modbusMbapHeaderLength + pduLength;
+        if (eError_ok != modbus_decodePduException(pBuf, bufferLength, &exceptionheader)) {
+            return eError_invalidData;
+        }
+
+        pCallbacks->exceptionCallback(mbap.transactionIdentifier, exceptionheader);
+
+    } else {
+
+        switch (pdu.code) {
+        case eModbusFunctionCode_readCoils:
+            break;
+        case eModbusFunctionCode_readDiscreteInputs:
+            break;
+        case eModbusFunctionCode_readHoldingRegister:
+            /* Convert to */
+            modbusPduResponseReadHoldingRegistersHeader_t holdingHeader = {};
+
+            if (eError_ok != modbus_decodePduReadHoldingRegisterHeader(pBuf, bufferLength, &holdingHeader)) {
+                return eError_invalidData;
+            }
+
+            uint8_t offset = 0;
+            uint16_t registerValue = 0;
+            while (eError_noData != modbus_getNextRegister(pBuf, bufferLength, &holdingHeader, &offset, &registerValue)) {
+                pCallbacks->readHoldingRegisterCallback(mbap.transactionIdentifier, registerValue);
+            }
+
+            break;
+        default:
+            return eError_unsupported;
+        }
+    }
+
+    return eError_ok;
 }

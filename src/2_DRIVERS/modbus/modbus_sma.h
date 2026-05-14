@@ -2,6 +2,7 @@
  * @file modbus_sma.h
  * @brief SMA MODBUS protocol registers
  */
+
 #ifndef MODBUS_SMA_H__
 #define MODBUS_SMA_H__
 

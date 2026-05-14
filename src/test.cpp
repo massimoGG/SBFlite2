@@ -15,19 +15,10 @@ void printBufferHex(const uint8_t* pBuf, size_t length);
 int main(int argc, char* argv[])
 {
 
-    /* Fetch arguments */
-    if (argc != 4) {
-        fprintf(stdout, "Usage %s <IP> <Starting Address> <Counts>\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-
-    const char* c_ip = argv[1];
-    const char* c_startingAddress = argv[2];
-    const char* c_count = argv[3];
-
     /* Convert starting address & count */
-    const uint16_t startingAddress = strtol(c_startingAddress, NULL, 10);
-    const uint16_t count = strtol(c_count, NULL, 10);
+    const uint16_t startingAddress = 30001;
+    const uint16_t count = 1;
+    const char* c_ip = "172.19.30.0";
 
     uint8_t buffer[eModbusMbapHeaderLength + eModbusPduRequestHeaderLength];
 

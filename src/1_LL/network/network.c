@@ -5,15 +5,19 @@
 
 #include "network.h"
 #include <arpa/inet.h>
+#include <asm/termbits.h>
 #include <assert.h>
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/tcp.h>
 #include <poll.h>
 #include <stdlib.h>
+#include <sys/ioctl.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <unistd.h>
+
+static error_e network_poll(networkHandle_t* pHandle);
 
 /**
  * @brief creates and returns a prepared network handle
@@ -97,16 +101,14 @@ error_e network_write(networkHandle_t* pHandle,
 }
 
 /**
- * @brief reads from socket to \p pData and updates \p pSize with the actual bytes read
- * @param[in] pHandle
- * @param[out] pData
- * @param[in,out] pSize
- * @return error_e
+ * @brief polls the socket for reading
+ * @param pHandle
+ * @retval eError_ok        socket is ready to read
+ * @retval eError_failed    if there's a general socket failure
+ * @retval eError_timeout   if a timeout occurred
  */
-error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
+static error_e network_poll(networkHandle_t* pHandle)
 {
-    assert(*pSize != 0);
-
     /* Prepare poll struct */
     struct pollfd fds = (struct pollfd) {
         .fd = pHandle->sockfd,
@@ -134,11 +136,47 @@ error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
         return eError_failed;
     }
 
-    /* Actually read now from kernel */
-    *pSize = recv(pHandle->sockfd, pData, *pSize, 0);
-    if (*pSize < 1) { /* -1 = error, 0 = connection closed */
-        return eError_failed;
+    return eError_ok;
+}
+
+/**
+ * @brief reads \p pSize bytes from socket to \p pData and updates \p pSize with the actual bytes read
+ * @param[in] pHandle
+ * @param[out] pData
+ * @param[in,out] pSize in: size of \p pData buffer; out: total size read into buffer
+ * @retval eError_ok        if the expected number of bytes were received
+ * @retval eError_timeout   if a timeout occurred
+ */
+error_e network_readUntil(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
+{
+    assert(*pSize != 0);
+
+    uint16_t totalRead = 0;
+
+    /* Keep reading until received *pSize bytes */
+    while (totalRead < *pSize) {
+        const error_e ret = network_poll(pHandle);
+        if (eError_ok != ret) {
+            *pSize = totalRead;
+            return eError_timeout;
+        }
+
+        /* Actually read now from kernel */
+        const int bytesRead = read(pHandle->sockfd, pData, *pSize);
+        if (-1 == bytesRead) {
+            /* Socket error */
+            return eError_failed;
+        } else if (0 == bytesRead) {
+            /* Connection lost */
+            break;
+        }
+
+        /* Progress */
+        totalRead += bytesRead;
+        pData += bytesRead;
     }
+
+    *pSize = totalRead;
 
     return eError_ok;
 }

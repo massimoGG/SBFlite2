@@ -33,7 +33,7 @@ networkHandle_t* network_init(uint32_t timeoutMs);
 error_e network_connect(networkHandle_t* pHandle, const char* ip, uint16_t port);
 error_e network_write(networkHandle_t* pHandle, const uint8_t* pData,
     uint16_t size);
-error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize);
+error_e network_readUntil(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize);
 error_e network_getState(networkHandle_t* pHandle);
 error_e network_close(networkHandle_t* pHandle);
 error_e network_deinit(networkHandle_t* pHandle);

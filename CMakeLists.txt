@@ -20,7 +20,6 @@ target_sources(SBFlite
     ./src/2_DRIVERS/database/influxline.cpp
 
     ./src/2_DRIVERS/modbus/modbus.cpp
-    ./src/2_DRIVERS/modbus/modbus.c
 
     ./src/config/config.cpp
     ./src/inverter/inverter.cpp
@@ -40,6 +39,8 @@ target_sources(mbcli
     ./src/1_LL/network/network.c
 
     ./src/2_DRIVERS/modbus/modbus.c
+    ./src/2_DRIVERS/modbus/modbus_mbap.c
+    ./src/2_DRIVERS/modbus/modbus_pdu.c
 
     ./src/inverter/inverter.cpp
 
@@ -47,6 +48,26 @@ target_sources(mbcli
 
 )
 include_directories(mbcli
+    src/
+    inc/
+)
+
+add_executable(test)
+target_sources(test
+    PUBLIC
+
+    ./src/1_LL/network/network.c
+
+    ./src/2_DRIVERS/modbus/modbus.c
+    ./src/2_DRIVERS/modbus/modbus_mbap.c
+    ./src/2_DRIVERS/modbus/modbus_pdu.c
+
+    ./src/inverter/inverter.cpp
+
+    ./src/test.cpp
+
+)
+include_directories(test
     src/
     inc/
 )
