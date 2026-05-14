@@ -5,7 +5,7 @@
 #ifndef __ERROR_CODES_H__
 #define __ERROR_CODES_H__
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -20,7 +20,7 @@ typedef enum error {
     eError_timeout /**< Timeout */
 } error_e;
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 }
 #endif
 

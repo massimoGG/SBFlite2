@@ -8,7 +8,7 @@
 #include <error_codes.h>
 #include <stdint.h>
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -38,7 +38,7 @@ error_e network_getState(networkHandle_t* pHandle);
 error_e network_close(networkHandle_t* pHandle);
 error_e network_deinit(networkHandle_t* pHandle);
 
-#ifdef __cplusplus__
+#ifdef __cplusplus
 } // extern "C"
 #endif
 

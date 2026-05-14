@@ -5,11 +5,14 @@
 #ifndef MODBUS_SMA_H__
 #define MODBUS_SMA_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 /** SMA Data types NaN values */
-typedef enum smaModbus_dataNaNValues
-{
+typedef enum smaModbus_dataNaNValues {
     eSmaModbusDataNaNS16 = 0x8000,
     eSmaModbusDataNaNS32 = 0x80000000,
     eSmaModbusDataNaNSTR32 = 0,
@@ -33,8 +36,7 @@ typedef double TEMP;
 typedef unsigned long TM;
 
 /** @brief The SMA MODBUS-assigned registers */
-typedef enum smaModbus_registers
-{
+typedef enum smaModbus_registers {
     /** U32 RAW */
     eSmaModbusRegister_versionNumberOfTheSmaModbusProfile = 30001U,
     /** U32 RAW */
@@ -726,8 +728,7 @@ typedef enum smaModbus_registers
 } smaModbus_registers_e;
 
 /** @brief Device class */
-typedef enum smaModbus_deviceClass
-{
+typedef enum smaModbus_deviceClass {
     eSmaModbusDeviceClass_allDevices = 8000U,
     eSmaModbusDeviceClass_pvInverter = 8001U,
     eSmaModbusDeviceClass_windPowerInverter = 8002U,
@@ -739,14 +740,12 @@ typedef enum smaModbus_deviceClass
 } smaModbus_deviceClass_e;
 
 /** @brief Manufacturer specification */
-typedef enum smaModbus_manufacturerSpecification
-{
+typedef enum smaModbus_manufacturerSpecification {
     eSmaModbusManufacturerSpecification_sma = 461U,
 } smaModbus_manufacturerSpecification_e;
 
 /** @brief Status of the device */
-typedef enum smaModbus_statusOfTheDevice
-{
+typedef enum smaModbus_statusOfTheDevice {
     eSmaModbusStatusOfTheDevice_fault = 35U,
     eSmaModbusStatusOfTheDevice_off = 303U,
     eSmaModbusStatusOfTheDevice_ok = 307U,
@@ -754,8 +753,7 @@ typedef enum smaModbus_statusOfTheDevice
 } smaModbus_statusOfTheDevice_e;
 
 /** @brief Recommended action */
-typedef enum smaModbus_recommendedAction
-{
+typedef enum smaModbus_recommendedAction {
     eSmaModbusRecommendedAction_contactManufacturer = 336U,
     eSmaModbusRecommendedAction_contactInstaller = 337U,
     eSmaModbusRecommendedAction_invalid = 338U,
@@ -763,27 +761,23 @@ typedef enum smaModbus_recommendedAction
 } smaModbus_recommendedAction_e;
 
 /** @brief Status message */
-typedef enum smaModbus_statusMessage
-{
+typedef enum smaModbus_statusMessage {
     eSmaModbusStatusMessage_noMessage = 886U,
 } smaModbus_statusMessage_e;
 
 /** @brief Status description */
-typedef enum smaModbus_statusDescription
-{
+typedef enum smaModbus_statusDescription {
     eSmaModbusStatusDescription_noDescription = 885U,
 } smaModbus_statusDescription_e;
 
 /** @brief Utility grid contactor */
-typedef enum smaModbus_utilityGridContactor
-{
+typedef enum smaModbus_utilityGridContactor {
     eSmaModbusUtilityGridContactor_closed = 51U,
     eSmaModbusUtilityGridContactor_open = 311U,
 } smaModbus_utilityGridContactor_e;
 
 /** @brief Temperature derating */
-typedef enum smaModbus_temperatureDerating
-{
+typedef enum smaModbus_temperatureDerating {
     eSmaModbusTemperatureDerating_noDerating = 302U,
     eSmaModbusTemperatureDerating_temperatureDerating = 557U,
     eSmaModbusTemperatureDerating_notActive = 884U,
@@ -793,22 +787,19 @@ typedef enum smaModbus_temperatureDerating
 } smaModbus_temperatureDerating_e;
 
 /** @brief Status of key switch */
-typedef enum smaModbus_statusOfKeySwitch
-{
+typedef enum smaModbus_statusOfKeySwitch {
     eSmaModbusStatusOfKeySwitch_off = 381U,
     eSmaModbusStatusOfKeySwitch_on = 569U,
 } smaModbus_statusOfKeySwitch_e;
 
 /** @brief Backup mode status */
-typedef enum smaModbus_backupModeStatus
-{
+typedef enum smaModbus_backupModeStatus {
     eSmaModbusBackupModeStatus_gridOperation = 1440U,
     eSmaModbusBackupModeStatus_standAloneMode = 1441U
 } smaModbus_backupModeStatus_e;
 
 /** @brief Grid type */
-typedef enum smaModbus_gridType
-{
+typedef enum smaModbus_gridType {
     eSmaModbusGridType_277V = 1433U,
     eSmaModbusGridType_208V = 1434U,
     eSmaModbusGridType_240V = 1435U,
@@ -817,15 +808,13 @@ typedef enum smaModbus_gridType
 } smaModbus_gridType_e;
 
 /** @brief Status of the GFDI relay */
-typedef enum smaModbus_statusOfTheGfdiRelay
-{
+typedef enum smaModbus_statusOfTheGfdiRelay {
     eSmaModbusStatusOfTheGfdiRelay_closed = 51U,
     eSmaModbusStatusOfTheGfdiRelay_open = 311U,
 } smaModbus_statusOfTheGfdiRelay_e;
 
 /** @brief Status of current restart interlock */
-typedef enum smaModbus_statusOfCurrentRestartInterlock
-{
+typedef enum smaModbus_statusOfCurrentRestartInterlock {
     eSmaModbusStatusOfCurrentRestartInterlock_frequencyNotPermitted = 257U,
     eSmaModbusStatusOfCurrentRestartInterlock_fastShutDown = 1690U,
     eSmaModbusStatusOfCurrentRestartInterlock_overvoltage = 2386U,
@@ -840,22 +829,19 @@ typedef enum smaModbus_statusOfCurrentRestartInterlock
 } smaModbus_statusOfCurrentRestartInterlock_e;
 
 /** @brief State of DC switch */
-typedef enum smaModbus_stateOfDcSwitch
-{
+typedef enum smaModbus_stateOfDcSwitch {
     eSmaModbusStateOfDcSwitch_closed = 51U,
     eSmaModbusStateOfDcSwitch_open = 311U,
 } smaModbus_stateOfDcSwitch_e;
 
 /** @brief DC switch 1 to 32 */
-typedef enum smaModbus_dcSwitch
-{
+typedef enum smaModbus_dcSwitch {
     eSmaModbusDcSwitch_closed = 51U,
     eSmaModbusDcSwitch_open = 331U,
 } smaModbus_dcSwitch_e;
 
 /** @brief Error message DC switch 1 to 32 */
-typedef enum smaModbus_errorMessageDcSwitch
-{
+typedef enum smaModbus_errorMessageDcSwitch {
     eSmaModbusErrorMessageDcSwitch_90PercentOfTheDcSwitchCyclesReached = 1508U,
     eSmaModbusErrorMessageDcSwitch_100PercentOfTheDcSwitchCyclesReached = 1509U,
     eSmaModbusErrorMessageDcSwitch_dcSwitchHasTripped = 1694U,
@@ -867,15 +853,13 @@ typedef enum smaModbus_errorMessageDcSwitch
 } smaModbus_errorMessageDcSwitch_e;
 
 /** @brief Excitation type of cos phi */
-typedef enum smaModbus_excitationTypeOfCosPhi
-{
+typedef enum smaModbus_excitationTypeOfCosPhi {
     eSmaModbusExcitationTypeOfCosPhi_leading = 1041U,
     eSmaModbusExcitationTypeOfCosPhi_lagging = 1042U,
 } smaModbus_excitationTypeOfCosPhi_e;
 
 /** @brief Active battery charging mode */
-typedef enum smaModbus_activeBatteryChargingMode
-{
+typedef enum smaModbus_activeBatteryChargingMode {
     eSmaModbusActiveBatteryChargingMode_boostCharge = 1767U,
     eSmaModbusActiveBatteryChargingMode_fullCharge = 1768U,
     eSmaModbusActiveBatteryChargingMode_equalizationCharge = 1769U,
@@ -883,23 +867,20 @@ typedef enum smaModbus_activeBatteryChargingMode
 } smaModbus_activeBatteryChargingMode_e;
 
 /** @brief Battery maintenance charge status */
-typedef enum smaModbus_batteryMaintenanceChargeStatus
-{
+typedef enum smaModbus_batteryMaintenanceChargeStatus {
     eSmaModbusBatteryMaintenanceChargeStatus_inactive = 803U,
     eSmaModbusBatteryMaintenanceChargeStatus_chargeWithSolarPower = 1771U,
     eSmaModbusBatteryMaintenanceChargeStatus_chargeWithSolarAndGridPower = 1772U,
 } smaModbus_batteryMaintenanceChargeStatus_e;
 
 /** @brief Multifunction relay status */
-typedef enum smaModbus_multifunctionRelayStatus
-{
+typedef enum smaModbus_multifunctionRelayStatus {
     eSmaModbusMultifunctionRelayStatus_closed = 51U,
     eSmaModbusMultifunctionRelayStatus_open = 311U,
 } smaModbus_multifunctionRelayStatus_e;
 
 /** @brief Electricity supply status */
-typedef enum smaModbus_electricitySupplyStatus
-{
+typedef enum smaModbus_electricitySupplyStatus {
     eSmaModbusElectricitySupplyStatus_off = 303U,
     eSmaModbusElectricitySupplyStatus_utilityGridConnected = 1461U,
     eSmaModbusElectricitySupplyStatus_backupNotAvailable = 1462U,
@@ -907,8 +888,7 @@ typedef enum smaModbus_electricitySupplyStatus
 } smaModbus_electricitySupplyStatus_e;
 
 /** @brief Reason for requesting generator */
-typedef enum smaModbus_reasonForRequestingGenerator
-{
+typedef enum smaModbus_reasonForRequestingGenerator {
     eSmaModbusReasonForRequestingGenerator_noRequest = 1773U,
     eSmaModbusReasonForRequestingGenerator_load = 1774U,
     eSmaModbusReasonForRequestingGenerator_timeControl = 1775U,
@@ -918,16 +898,14 @@ typedef enum smaModbus_reasonForRequestingGenerator
 } smaModbus_reasonForRequestingGenerator_e;
 
 /** @brief PV system utility grid connection */
-typedef enum smaModbus_pvSystemUtilityGridConnection
-{
+typedef enum smaModbus_pvSystemUtilityGridConnection {
     eSmaModbusPvSystemUtilityGridConnection_disconnected = 1779U,
     eSmaModbusPvSystemUtilityGridConnection_utilityGrid = 1780U,
     eSmaModbusPvSystemUtilityGridConnection_standAloneGrid = 1781U,
 } smaModbus_pvSystemUtilityGridConnection_e;
 
 /** @brief Status of utility grid */
-typedef enum smaModbus_statusOfUtilityGrid
-{
+typedef enum smaModbus_statusOfUtilityGrid {
     eSmaModbusStatusOfUtilityGrid_off = 303U,
     eSmaModbusStatusOfUtilityGrid_waitingForValidAcUtilityGrid = 1394U,
     eSmaModbusStatusOfUtilityGrid_utilityGridConnected = 1461U,
@@ -940,24 +918,21 @@ typedef enum smaModbus_statusOfUtilityGrid
 } smaModbus_statusOfUtilityGrid_e;
 
 /** @brief Data transfer of network terminal */
-typedef enum smaModbus_dataTransferRateOfNetworkTerminal
-{
+typedef enum smaModbus_dataTransferRateOfNetworkTerminal {
     eSmaModbusDataTransferOfNetworkTerminal_10Mbit = 1720U,
     eSmaModbusDataTransferOfNetworkTerminal_100Mbit = 1721U,
     eSmaModbusDataTransferOfNetworkTerminal_notConnected = 1725U,
 } smaModbus_dataTransferRateOfNetworkTerminal_e;
 
 /** @brief Duplex mode of network terminal */
-typedef enum smaModbus_duplexModeOfNetworkTerminal
-{
+typedef enum smaModbus_duplexModeOfNetworkTerminal {
     eSmaModbusDuplexModeOfNetworkTerminal_notConnected = 1725U,
     eSmaModbusDuplexModeOfNetworkTerminal_halfDuplex = 1726U,
     eSmaModbusDuplexModeOfNetworkTerminal_fullDuplex = 1727U,
 } smaModbus_duplexModeOfNetworkTerminal_e;
 
 /** @brief Speedwire connection status of network terminal */
-typedef enum smaModbus_speedwireConnectionStatusOfNetworkTerminal
-{
+typedef enum smaModbus_speedwireConnectionStatusOfNetworkTerminal {
     eSmaModbusSpeedwireConnectionStatusOfNetworkTerminal_alarm = 35U,
     eSmaModbusSpeedwireConnectionStatusOfNetworkTerminal_ok = 307U,
     eSmaModbusSpeedwireConnectionStatusOfNetworkTerminal_warning = 455U,
@@ -965,12 +940,15 @@ typedef enum smaModbus_speedwireConnectionStatusOfNetworkTerminal
 } smaModbus_speedwireConnectionStatusOfNetworkTerminal_e;
 
 /** @brief Operating status of battery */
-typedef enum smaModbus_operatingStatusOfBattery
-{
+typedef enum smaModbus_operatingStatusOfBattery {
     eSmaModbusOperatingStatusOfBattery_off = 303U,
     eSmaModbusOperatingStatusOfBattery_batteryStandby = 2291U,
     eSmaModbusOperatingStatusOfBattery_batteryCharging = 2292U,
     eSmaModbusOperatingStatusOfBattery_batteryDischarging = 2293U,
 } smaModbus_operatingStatusOfBattery_e;
+
+#ifdef __cplusplus
+} /* extern "C" {*/
+#endif
 
 #endif
