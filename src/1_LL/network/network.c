@@ -112,6 +112,7 @@ error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
         .fd = pHandle->sockfd,
         /* PollIn = Read event*/
         .events = POLLIN,
+        .revents = 0,
     };
 
     const int sockfdsReady = poll(&fds, 1, pHandle->timeout);
@@ -123,7 +124,7 @@ error_e network_read(networkHandle_t* pHandle, uint8_t* pData, uint16_t* pSize)
         return eError_timeout;
     }
 
-    if ((fds.revents | (POLLPRI | POLLERR | POLLHUP)) != 0) {
+    if ((fds.revents & (POLLPRI | POLLERR | POLLHUP)) != 0) {
         /* Error with socket*/
         return eError_failed;
     }
