@@ -30,6 +30,7 @@ error_e sendReadHoldingRegister(modbusWrapper_handle_t* pHandle, uint16_t starti
 error_e fetchReadHoldingRegister(modbusWrapper_handle_t* pHandle, uint8_t count, modbusPduResponseReadHoldingRegistersHeader_t* pHoldingHeader);
 
 error_e fetchU32(modbusWrapper_handle_t* pHandle, uint16_t address, uint32_t* pValue);
+error_e fetchU32Multiple(modbusWrapper_handle_t* pHandle, uint16_t address, uint16_t count, uint32_t* pRegisters);
 
 void printBufferHex(const uint8_t* pBuf, uint32_t length);
 

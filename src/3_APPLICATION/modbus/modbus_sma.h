@@ -26,7 +26,7 @@ typedef enum smaModbus_dataNaNValues {
 /** SMA Data Formats */
 typedef unsigned long Duration;
 typedef unsigned long DT;
-typedef double FIX0;
+typedef unsigned long FIX0;
 typedef double FIX1;
 typedef double FIX2;
 typedef double FIX3;

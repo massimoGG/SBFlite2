@@ -1,5 +1,6 @@
 #include <1_LL/network/network.h>
 #include <2_DRIVERS/modbus/modbus.h>
+#include <3_APPLICATION/modbus/modbus_sma.h>
 #include <3_APPLICATION/modbus/sma.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -41,15 +42,30 @@ int main(int argc, char* argv[])
         network_deinit(handles[0]);
         return EXIT_FAILURE;
     }
-
+#if 0
     if (eError_ok != network_connect(handles[1], "172.19.40.0", eModbus_port)) {
         perror("Couln't connect to inverter");
         network_deinit(handles[1]);
         return EXIT_FAILURE;
     }
+#endif
 
-    for (;;) {
+    modbusWrapper_handle_t mbWrapperHandle = {
+        .unitIdentifier = UNIT_IDENTIFIER,
+        .pNetworkHandle = handles[0],
+        .responseBuffer = "",
+    };
 
+    uint32_t aRegisters[3];
+    if (eError_ok != fetchU32Multiple(&mbWrapperHandle, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, (eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_MWh - eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh) / 2 + 1, aRegisters)) {
+        return eError_failed;
+    }
+
+    for (int i = 0; i < 3; i++) {
+        printf("%d\t%d\n", i, aRegisters[i]);
+    }
+
+#if 0
         for (int idx = 0; idx < 2; idx++) {
             networkHandle_t* pHandle = handles[idx];
 
@@ -93,17 +109,19 @@ int main(int argc, char* argv[])
                 return EXIT_FAILURE;
             }
         }
+#endif
 
-        sleep(1);
-    }
+    sleep(1);
 
 CLEANUP:
 
-    for (int idx = 0; idx < sizeof(handles); idx++) {
+    for (int idx = 0; idx < sizeof(handles) / sizeof(handles[0]); idx++) {
         networkHandle_t* pHandle = handles[idx];
+        if (pHandle != NULL) {
 
-        network_close(pHandle);
-        network_deinit(pHandle);
+            network_close(pHandle);
+            network_deinit(pHandle);
+        }
     }
 
     return EXIT_SUCCESS;

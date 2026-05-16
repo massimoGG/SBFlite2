@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
         aInverters.push_back((SmaInverter_t) {
             .networkHandle = network_init(cfg.timeout),
             .unitIdentifier = invCfg.unitIdentifier,
-            .Name = invCfg.name,
+            .name = invCfg.name,
         });
 
         /* Connect to the inverter */
@@ -134,55 +134,44 @@ error_e getValuesFromInverter(SmaInverter_t& inv)
     }
     inv.gridConnection = static_cast<smaModbus_pvSystemUtilityGridConnection_e>(value);
 
+    /* Status of the device */
     if (eError_ok != fetchU32(&handle, eSmaModbusRegister_statusOfDevice, &value)) {
         return eError_failed;
     }
     inv.statusOfDevice = static_cast<smaModbus_statusOfTheDevice_e>(value);
 
-#if 0
-    
-    regs = modbus_read_registers(&t, eSmaModbusRegister_utilityGridContactor, c_registerSize);
-    if (regs == NULL) {
+    /* Energy */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, &value)) {
         return eError_failed;
     }
+    inv.totalYield = value;
 
-    inv.GridRelay = static_cast<smaModbus_utilityGridContactor_e>(getValue(regs, eSmaModbusRegister_utilityGridContactor, eSmaModbusRegister_utilityGridContactor));
-
-    modbus_free_registers(regs);
-    regs = modbus_read_registers(&t, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh,
-        /* Offset in bytes + the last register */
-        (eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh - eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh) + c_registerSize);
-    if (regs == NULL) {
+    /* Day Energy */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh, &value)) {
         return eError_failed;
     }
+    inv.dayYield = value;
 
-    /* Total Yield (Wh) U32; FIX0 */
-    inv.TotalYield = getValue(regs, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh);
-    /* Energy fed in on the current day on all line conductors (Wh) U32; FIX0 */
-    inv.DayYield = getValue(regs, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh);
-
-    modbus_free_registers(regs);
-    regs = modbus_read_registers(&t, eSmaModbusRegister_dcCurrentInput1_S32,
-        /* Offset + last register */
-        (eSmaModbusRegister_lineCurrentOnAllLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) + c_registerSize);
-    if (regs == NULL) {
+    /* Get U, I, P */
+    uint32_t aRegisters[32];
+    if (eError_ok != fetchU32Multiple(&handle, eSmaModbusRegister_dcCurrentInput1_S32, (eSmaModbusRegister_lineCurrentOnAllLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) / 2, aRegisters)) {
         return eError_failed;
     }
 
     /** DC current input 1 (A) S32; FIX3 */
-    inv.Idc1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcCurrentInput1_S32) / 1000);
+    inv.idc1 = ((double)aRegisters[eSmaModbusRegister_dcCurrentInput1_S32 - eSmaModbusRegister_dcCurrentInput1_S32] / 1000);
     /** DC voltage input 1 (V) S32; FIX2 */
-    inv.Udc1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcVoltageInput1_S32) / 100);
+    inv.udc1 = ((double)aRegisters[(eSmaModbusRegister_dcVoltageInput1_S32 - eSmaModbusRegister_dcCurrentInput1_S32) / 2] / 100);
     /** DC power input 1 (W) S32; FIX0 */
-    inv.Pdc1 = getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcPowerInput1_S32);
+    inv.pdc1 = aRegisters[(eSmaModbusRegister_dcPowerInput1_S32 - eSmaModbusRegister_dcCurrentInput1_S32) / 2];
     /** Active power of line conductor L1 (W) S32; FIX0 */
-    inv.Pac1 = getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_activePowerOnallLineConductors);
+    inv.pac1 = aRegisters[(eSmaModbusRegister_activePowerOnallLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) / 2];
     /** Line voltage, line conductor L1 to N (V) U32; FIX2 */
-    inv.Uac1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineVoltageLineConductorL1ToN) / 100);
+    inv.uac1 = ((double)aRegisters[(eSmaModbusRegister_lineVoltageLineConductorL1ToN - eSmaModbusRegister_dcCurrentInput1_S32) / 2] / 100);
     /** Line current of line conductor L1 (A); S32; FIX3 */
-    inv.Iac1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineCurrentOnAllLineConductors) / 1000);
+    inv.iac1 = ((double)aRegisters[(eSmaModbusRegister_lineCurrentOnAllLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) / 2] / 1000);
 
-    modbus_free_registers(regs);
+#if 0
     regs = modbus_read_registers(&t, eSmaModbusRegister_powerFrequency, c_registerSize);
     if (regs == NULL) {
         return eError_failed;
@@ -244,36 +233,36 @@ error_e exportToInflux(Influx& ifx, const SmaInverter_t& inv,
 
     line.setTimestamp(currentTimestamp);
 
-    line.addTag("name", inv.Name);
+    line.addTag("name", inv.name);
 
-    line.addField("Condition", int(inv.Condition));
+    line.addField("status", int(inv.statusOfDevice));
+    line.addField("gridConnection", int(inv.gridConnection));
 
-    line.addField("DayYield", inv.DayYield);
-    line.addField("TotalYield", inv.TotalYield);
+    line.addField("dayYield", inv.dayYield);
+    line.addField("totalYield", inv.totalYield);
 
     /* Inverter's grid relay contactor is not closed -> Post only limited values, should find some other way*/
-    if (inv.GridRelay != eSmaModbusUtilityGridContactor_closed) {
+    if (inv.gridConnection != eSmaModbusPvSystemUtilityGridConnection_utilityGrid) {
         return ifx.post(line.getLine());
     } else {
-        line.addField("GridRelay", int(inv.GridRelay));
-        line.addField("Temperature", inv.Temperature);
+        line.addField("temperature", inv.temperature);
 
-        line.addField("GridFreq", inv.GridFreq);
+        line.addField("gridFreq", inv.gridFreq);
 
-        line.addField("Pac1", inv.Pac1);
-        line.addField("Pdc1", inv.Pdc1);
-        line.addField("Pdc2", inv.Pdc2);
+        line.addField("pac1", inv.pac1);
+        line.addField("pdc1", inv.pdc1);
+        line.addField("pdc2", inv.pdc2);
 
-        line.addField("Uac1", inv.Uac1);
-        line.addField("Udc1", inv.Udc1);
-        line.addField("Udc2", inv.Udc2);
+        line.addField("uac1", inv.uac1);
+        line.addField("udc1", inv.udc1);
+        line.addField("udc2", inv.udc2);
 
-        line.addField("Iac1", inv.Iac1);
-        line.addField("Idc1", inv.Idc1);
-        line.addField("Idc2", inv.Idc2);
+        line.addField("iac1", inv.iac1);
+        line.addField("idc1", inv.idc1);
+        line.addField("idc2", inv.idc2);
 
-        line.addField("ReactivePower", inv.ReactivePower);
-        line.addField("ApparentPower", inv.ApparentPower);
+        line.addField("reactivePower", inv.reactivePower);
+        line.addField("apparentPower", inv.apparentPower);
 
         return ifx.post(line.getLine());
     }

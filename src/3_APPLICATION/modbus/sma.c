@@ -1,5 +1,6 @@
 
 #include "sma.h"
+#include <stdbool.h>
 #include <stdio.h>
 
 /** Globals */
@@ -122,16 +123,63 @@ error_e fetchU32(modbusWrapper_handle_t* pHandle, uint16_t address, uint32_t* pV
     uint16_t registerValue = 0;
 
     /* Read the first half */
-    if (eError_noData != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
+    if (eError_ok != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
         return eError_invalidData;
     }
     *pValue = registerValue << 16U;
 
-    if (eError_noData != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
+    if (eError_ok != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
         // printf("%s\t%d -> %d\n", __func__, offset, registerValue);
         return eError_invalidData;
     }
     *pValue |= registerValue;
+
+    return eError_ok;
+}
+
+/**
+ * @brief fetches a U32 register
+ * @param pHandle
+ * @param address
+ * @param count                 number of U32 registers
+ * @param[in,out] pRegisters    pointer to where the registers will be stored
+ * @retval eError_invalidData   invalid response
+ * @retval eError_ok            successfully decoded U32
+ */
+error_e fetchU32Multiple(modbusWrapper_handle_t* pHandle, uint16_t address, uint16_t count, uint32_t* pRegisters)
+{
+    /* Send request */
+    error_e ret = sendReadHoldingRegister(pHandle, address, count * 2);
+    if (eError_ok != ret) {
+        return ret;
+    }
+
+    /* Read response */
+    modbusPduResponseReadHoldingRegistersHeader_t holdingHeader = {};
+
+    ret = fetchReadHoldingRegister(pHandle, count * 2, &holdingHeader);
+    if (eError_ok != ret) {
+        return ret;
+    }
+
+    uint8_t offset = 0;
+
+    for (uint16_t registerValue = 0; count; count--) {
+        /* Get first half */
+        if (eError_ok != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
+            return eError_invalidData;
+        }
+        uint32_t value = registerValue << 16U;
+
+        /* Get second half */
+        if (eError_ok != modbus_getNextRegister(pHandle->responseBuffer, pHandle->responseSize, &holdingHeader, &offset, &registerValue)) {
+            return eError_invalidData;
+        }
+        value |= registerValue;
+
+        /* Store at given array */
+        *pRegisters++ = value;
+    }
 
     return eError_ok;
 }
