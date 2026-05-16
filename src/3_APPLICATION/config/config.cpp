@@ -1,7 +1,7 @@
-#include <iostream>
 #include "config.hpp"
-#include <toml.hpp>
 #include <cassert>
+#include <iostream>
+#include <toml.hpp>
 
 #define TOML_FILENAME "/etc/sbflite/config.toml"
 
@@ -11,15 +11,14 @@
  * @retval eError_ok        Successfully read config
  * @retval eError_failed    Failed to read the config file
  */
-error_e getConfiguration(Configuration &cfg)
+error_e getConfiguration(Configuration& cfg)
 {
     using namespace std;
 
     /* Read TOML file */
     const auto input = toml::try_parse(TOML_FILENAME);
 
-    if (input.is_err())
-    {
+    if (input.is_err()) {
         cerr << input.unwrap_err().at(0) << endl;
         return eError_failed;
     }
@@ -31,9 +30,9 @@ error_e getConfiguration(Configuration &cfg)
     cfg.debug = toml::find_or<bool>(data, "general", "debug", false);
     cfg.interval = toml::find_or<unsigned>(data, "general", "interval", 10);
     cfg.instanceName = toml::find_or<string>(data, "general", "instance", "SBFlite");
+    cfg.timeout = toml::find_or<unsigned>(data, "general", "timeout", 1000);
 
-    if (cfg.debug)
-    {
+    if (cfg.debug) {
         cout << "Interval: " << cfg.interval << endl;
         cout << "Instance name: " << cfg.instanceName << endl;
     }
@@ -42,8 +41,7 @@ error_e getConfiguration(Configuration &cfg)
     assert(data.at("influx").is_table());
 
     bool influxEnabled = toml::find_or<bool>(data, "influx", "enabled", false);
-    if (influxEnabled)
-    {
+    if (influxEnabled) {
         cfg.influx = {
             .enabled = true,
             .host = toml::find<string>(data, "influx", "host"),
@@ -51,10 +49,9 @@ error_e getConfiguration(Configuration &cfg)
             .org = toml::find<string>(data, "influx", "org"),
             .bucket = toml::find<string>(data, "influx", "bucket"),
             .token = toml::find<string>(data, "influx", "token"),
-            .measurement = toml::find<string>(data, "influx", "measurement")};
-    }
-    else
-    {
+            .measurement = toml::find<string>(data, "influx", "measurement")
+        };
+    } else {
         cfg.influx = {
             .enabled = false,
         };
@@ -62,18 +59,17 @@ error_e getConfiguration(Configuration &cfg)
 
     /* Read inverters */
     assert(data.at("inverters").is_table());
-    const auto &inverterConfigTable = data.at("inverters").as_table();
+    const auto& inverterConfigTable = data.at("inverters").as_table();
 
-    auto parseInverter = [](const toml::value &v)
-    {
-        return (InverterConfig){
+    auto parseInverter = [](const toml::value& v) {
+        return (InverterConfig) {
             .ip = toml::find<std::string>(v, "ip"),
             .name = toml::find<std::string>(v, "name"),
+            .unitIdentifier = toml::find<unsigned int>(v, "unitId"),
         };
     };
 
-    for (const auto &inverterConfig : inverterConfigTable)
-    {
+    for (const auto& inverterConfig : inverterConfigTable) {
         cfg.inverters.push_back(parseInverter(inverterConfig.second));
     }
 

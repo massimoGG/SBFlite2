@@ -2,6 +2,7 @@
 debug = false
 instance = "sbflite"
 interval = 10
+timeout = 1000
 
 [influx]
 enabled = true
@@ -16,7 +17,9 @@ measurement = "inverter"
 [inverters.sb3000TL]
 ip = "172.19.30.0"
 name = "SB3000TL-21"
+unitId = 3
 
 [inverters.sb4000TL]
 ip = "172.19.40.0"
 name = "SB4000TL-21"
+unitId = 3
