@@ -26,8 +26,10 @@ typedef struct modbusWrapper_handle {
 
 } modbusWrapper_handle_t;
 
-error_e sendRequest(modbusWrapper_handle_t* pHandle, uint16_t startingAddress, uint16_t count);
-error_e readResponse(modbusWrapper_handle_t* pHandle, uint8_t count);
+error_e sendReadHoldingRegister(modbusWrapper_handle_t* pHandle, uint16_t startingAddress, uint16_t count);
+error_e fetchReadHoldingRegister(modbusWrapper_handle_t* pHandle, uint8_t count, modbusPduResponseReadHoldingRegistersHeader_t* pHoldingHeader);
+
+error_e fetchU32(modbusWrapper_handle_t* pHandle, uint16_t address, uint32_t* pValue);
 
 void printBufferHex(const uint8_t* pBuf, uint32_t length);
 

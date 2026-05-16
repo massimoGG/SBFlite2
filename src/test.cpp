@@ -1,6 +1,6 @@
 #include <1_LL/network/network.h>
 #include <2_DRIVERS/modbus/modbus.h>
-#include <3_APPLICATION/modbus/modbus_sma.h>
+#include <3_APPLICATION/modbus/sma.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,9 +9,10 @@
 #define UNIT_IDENTIFIER 3
 #define TIMEOUT 500
 
+bool g_debug = true;
+
 void pduExceptionHandler(uint16_t transactionNumber, modbusPduExceptionResponseHeader_t exceptionHeader);
 void pduCb(uint16_t transactionNumber, uint16_t registerValue);
-void printBufferHex(const uint8_t* pBuf, size_t length);
 
 int main(int argc, char* argv[])
 {
@@ -122,32 +123,4 @@ void pduExceptionHandler(uint16_t transactionNumber, modbusPduExceptionResponseH
 void pduCb(uint16_t transactionNumber, uint16_t registerValue)
 {
     fprintf(stdout, "Transaction %d\tRegister Value is %02X = %dd\n", transactionNumber, registerValue, registerValue);
-}
-
-/**
- * @brief prints the given buffer in hex
- * @param pBuf      pointer to buffer
- * @param length    length of buffer
- */
-void printBufferHex(const uint8_t* pBuf, size_t bufferLength)
-{
-    const size_t lineLength = 16U;
-    /* Format per 16 bytes */
-    for (size_t lineOffset = 0; lineOffset < bufferLength; lineOffset += lineLength) {
-        /* For each line print the hexadecimal */
-        for (size_t idx = lineOffset; (idx < lineOffset + lineLength) && (idx < bufferLength); idx++) {
-            fprintf(stdout, "%02X ", pBuf[idx]);
-        }
-        fprintf(stdout, "\t");
-        /* Print the character */
-        for (size_t idx = lineOffset; (idx < lineOffset + lineLength) && (idx < bufferLength); idx++) {
-            const char character = pBuf[idx];
-            if ((character > 32) && (character < 126)) {
-                fprintf(stdout, "%c ", character);
-            } else {
-                fprintf(stdout, ".  ");
-            }
-        }
-        fprintf(stdout, "\n");
-    }
 }

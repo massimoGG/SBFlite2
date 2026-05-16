@@ -10,13 +10,13 @@
  * @param inv
  * @returns string representation of given inverter
  */
-std::string to_string(const SmaInverter_t &inv)
+std::string to_string(const SmaInverter_t& inv)
 {
     using namespace std;
 
-    string ret{};
+    string ret {};
 
-    ret += "\n\n\n\033[1m---------------------------\nINVERTER - " + string(inv.Name) + "\n" + string(inv.Ip) + "\n---------------------------\033[0m\n";
+    ret += "\n\n\n\033[1m---------------------------\nINVERTER - " + string(inv.Name) + "\n---------------------------\033[0m\n";
 
     ret += "Total yield: " + to_string(inv.TotalYield) + "Wh\n";
 

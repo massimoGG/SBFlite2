@@ -1,17 +1,25 @@
 #ifndef INVERTER_HPP__
 #define INVERTER_HPP__
 
+#include <1_LL/network/network.h>
 #include <3_APPLICATION/modbus/modbus_sma.h>
 #include <string>
 
 /** Inverter's state */
 struct SmaInverter_t {
-    std::string Ip;
-    unsigned short Port;
+
+    /** The connection to the inverter */
+    networkHandle_t* networkHandle;
+
+    uint8_t unitIdentifier;
+
     std::string Name;
 
+    /** PV system utility grid connection */
+    smaModbus_pvSystemUtilityGridConnection_e gridConnection;
+
     /** Status of the device */
-    smaModbus_statusOfTheDevice_e Condition;
+    smaModbus_statusOfTheDevice_e statusOfDevice;
 
     /** Utility grid contactor */
     smaModbus_utilityGridContactor_e GridRelay;

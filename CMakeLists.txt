@@ -25,7 +25,7 @@ target_sources(SBFlite
 
     ./src/3_APPLICATION/config/config.cpp
     ./src/3_APPLICATION/inverter/inverter.cpp
-    ./src/3_APPLICATION/modbus/modbus_wrapper.c
+    ./src/3_APPLICATION/modbus/sma.c
 
     ./src/main.cpp
 )
@@ -46,7 +46,7 @@ target_sources(mbcli
     ./src/2_DRIVERS/modbus/modbus_pdu.c
 
     ./src/3_APPLICATION/inverter/inverter.cpp
-    ./src/3_APPLICATION/modbus/modbus_wrapper.c
+    ./src/3_APPLICATION/modbus/sma.c
 
     ./src/cli.cpp
 
@@ -67,7 +67,7 @@ target_sources(test
     ./src/2_DRIVERS/modbus/modbus_pdu.c
 
     ./src/3_APPLICATION/inverter/inverter.cpp
-    ./src/3_APPLICATION/modbus/modbus_wrapper.c
+    ./src/3_APPLICATION/modbus/sma.c
 
     ./src/test.cpp
 

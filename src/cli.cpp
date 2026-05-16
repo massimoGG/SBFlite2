@@ -1,13 +1,15 @@
 #include <1_LL/network/network.h>
 #include <2_DRIVERS/modbus/modbus.h>
 #include <3_APPLICATION/modbus/modbus_sma.h>
-#include <3_APPLICATION/modbus/modbus_wrapper.h>
+#include <3_APPLICATION/modbus/sma.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #define UNIT_IDENTIFIER 3
 #define TIMEOUT 500
+
+bool g_debug = true;
 
 int main(int argc, char* argv[])
 {
@@ -40,19 +42,33 @@ int main(int argc, char* argv[])
         .pNetworkHandle = handle,
         .responseBuffer = "",
     };
-    if (eError_ok != sendRequest(&mbWrapperHandle, startingAddress, count)) {
+
+    if (eError_ok != sendReadHoldingRegister(&mbWrapperHandle, startingAddress, count)) {
         perror("Couldn't send request");
         network_close(handle);
         network_deinit(handle);
         return EXIT_FAILURE;
     }
 
-    if (eError_ok != readResponse(&mbWrapperHandle, count)) {
+    modbusPduResponseReadHoldingRegistersHeader_t holdingHeader;
+    if (eError_ok != fetchReadHoldingRegister(&mbWrapperHandle, count, &holdingHeader)) {
         perror("Couldn't send request");
         network_close(handle);
         network_deinit(handle);
         return EXIT_FAILURE;
     }
+
+    uint8_t offset = 0;
+    uint16_t registerValue = 0;
+
+    uint32_t u32Value = 0;
+
+    /* Read the first half */
+    while (eError_noData != modbus_getNextRegister(mbWrapperHandle.responseBuffer, mbWrapperHandle.responseSize, &holdingHeader, &offset, &registerValue)) {
+        printf("%d\n", registerValue);
+        u32Value |= registerValue << (offset / 2 * 16);
+    }
+    printf("%d\n", u32Value);
 
 CLEANUP:
     network_close(handle);
