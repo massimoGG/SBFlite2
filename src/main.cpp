@@ -8,18 +8,23 @@
 
 #include <error_codes.h>
 
+#include <1_LL/network/network.h>
 #include <2_DRIVERS/database/influx.hpp>
 #include <2_DRIVERS/database/influxline.hpp>
-#include <2_DRIVERS/modbus/modbus.hpp>
-#include <2_DRIVERS/modbus/modbus_sma.h>
-#include <config/config.hpp>
-#include <inverter/inverter.hpp>
+#include <2_DRIVERS/modbus/modbus.h>
+#include <3_APPLICATION/config/config.hpp>
+#include <3_APPLICATION/inverter/inverter.hpp>
+#include <3_APPLICATION/modbus/modbus_sma.h>
+#include <3_APPLICATION/modbus/modbus_wrapper.h>
 
 /** Globals */
 bool g_debug = false;
 
+#define UNIT_IDENTIFIER 3
+#define TIMEOUT 500
+
 /** Prototypes */
-error_e processInverter(SmaInverter_t&, modbus_t&);
+error_e processInverter(SmaInverter_t&, networkHandle& networkHandle);
 error_e exportToInflux(Influx&, const SmaInverter_t&, unsigned long);
 
 /** Public functions */
@@ -68,10 +73,12 @@ int main(int argc, char* argv[])
     };
 
     /* This is all temporary */
-    std::vector<modbus_t*> aModbusConnections;
+    std::vector<networkHandle_t*> aNetworkHandles;
 
     for (const SmaInverter_t& smaInverter : aInverters) {
-        aModbusConnections.push_back(modbus_connect_tcp(smaInverter.Ip.c_str(), smaInverter.Port));
+        aNetworkHandles.push_back(network_init(TIMEOUT));
+        auto handle = aNetworkHandles.back();
+        network_connect(handle, smaInverter.Ip.c_str(), smaInverter.Port);
     }
 
     for (;;) {
@@ -80,9 +87,9 @@ int main(int argc, char* argv[])
 
         for (size_t idx = 0; idx < aInverters.size(); idx++) {
             SmaInverter_t& inv = aInverters[idx];
-            modbus_t* modbus = aModbusConnections[idx];
+            networkHandle_t* networkHandle = aNetworkHandles[idx];
 
-            if (processInverter(inv, *modbus) != eError_ok) {
+            if (processInverter(inv, *networkHandle) != eError_ok) {
                 cerr << "Processing inverter failed " << endl;
                 goto ERROR_HANDLER;
             }
@@ -112,8 +119,9 @@ int main(int argc, char* argv[])
     }
 
 ERROR_HANDLER:
-    for (const auto& modbus : aModbusConnections) {
-        modbus_close(modbus);
+    for (const auto& handle : aNetworkHandles) {
+        network_close(handle);
+        network_deinit(handle);
     }
     ifx.close();
 
@@ -127,23 +135,16 @@ ERROR_HANDLER:
  * @retval eError_ok		if successfully processed inverter
  * @retval eError_failed	if unsuccessfull to process the given inverter
  */
-error_e processInverter(SmaInverter_t& inv, modbus_t& t)
+error_e processInverter(SmaInverter_t& inv, networkHandle& networkHandle)
 {
+#if 0
     /** A MODBUS register is 2 bytes */
     const size_t c_registerSize = 2U;
 
-    modbus_regs regs;
-
-    t.slave = 0x03; // 0 = broadcast, 3= my inverters
-
-    regs = modbus_read_registers(&t, eSmaModbusRegister_statusOfDevice, c_registerSize);
-    if (regs == NULL) {
-        return eError_failed;
-    }
+    sendRequest(&networkHandle, eSmaModbusRegister_statusOfDevice, c_registerSize);
 
     inv.Condition = static_cast<smaModbus_statusOfTheDevice_e>(getValue(regs, eSmaModbusRegister_statusOfDevice, eSmaModbusRegister_statusOfDevice));
 
-    modbus_free_registers(regs);
     regs = modbus_read_registers(&t, eSmaModbusRegister_utilityGridContactor, c_registerSize);
     if (regs == NULL) {
         return eError_failed;
@@ -229,7 +230,7 @@ error_e processInverter(SmaInverter_t& inv, modbus_t& t)
 
 	modbus_free_registers(regs);
 #endif
-
+#endif
     return eError_ok;
 }
 

@@ -1,12 +1,11 @@
 #ifndef INVERTER_HPP__
 #define INVERTER_HPP__
 
-#include <2_DRIVERS/modbus/modbus_sma.h>
+#include <3_APPLICATION/modbus/modbus_sma.h>
 #include <string>
 
 /** Inverter's state */
-struct SmaInverter_t
-{
+struct SmaInverter_t {
     std::string Ip;
     unsigned short Port;
     std::string Name;
@@ -61,6 +60,6 @@ struct SmaInverter_t
     TEMP HeatsinkTemperature;
 };
 
-std::string to_string(const SmaInverter_t &inv);
+std::string to_string(const SmaInverter_t& inv);
 
 #endif

@@ -19,10 +19,13 @@ target_sources(SBFlite
     ./src/2_DRIVERS/database/influx.cpp
     ./src/2_DRIVERS/database/influxline.cpp
 
-    ./src/2_DRIVERS/modbus/modbus.cpp
+    ./src/2_DRIVERS/modbus/modbus_mbap.c
+    ./src/2_DRIVERS/modbus/modbus_pdu.c
+    ./src/2_DRIVERS/modbus/modbus.c
 
-    ./src/config/config.cpp
-    ./src/inverter/inverter.cpp
+    ./src/3_APPLICATION/config/config.cpp
+    ./src/3_APPLICATION/inverter/inverter.cpp
+    ./src/3_APPLICATION/modbus/modbus_wrapper.c
 
     ./src/main.cpp
 )
@@ -42,7 +45,8 @@ target_sources(mbcli
     ./src/2_DRIVERS/modbus/modbus_mbap.c
     ./src/2_DRIVERS/modbus/modbus_pdu.c
 
-    ./src/inverter/inverter.cpp
+    ./src/3_APPLICATION/inverter/inverter.cpp
+    ./src/3_APPLICATION/modbus/modbus_wrapper.c
 
     ./src/cli.cpp
 
@@ -62,7 +66,8 @@ target_sources(test
     ./src/2_DRIVERS/modbus/modbus_mbap.c
     ./src/2_DRIVERS/modbus/modbus_pdu.c
 
-    ./src/inverter/inverter.cpp
+    ./src/3_APPLICATION/inverter/inverter.cpp
+    ./src/3_APPLICATION/modbus/modbus_wrapper.c
 
     ./src/test.cpp
 
