@@ -5,7 +5,6 @@
 
 #include "modbus.h"
 #include <arpa/inet.h> // for htons and ntohs
-#include <stdio.h>
 #include <string.h>
 
 /**
