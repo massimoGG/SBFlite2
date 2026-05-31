@@ -96,7 +96,9 @@ int main(int argc, char* argv[])
         /** Export to InfluxDB using the same timestamp */
 
         for (SmaInverter_t& inv : aInverters) {
-            exportToInflux(ifx, inv, currentTimestamp);
+            if (exportToInflux(ifx, inv, currentTimestamp) != eError_ok) {
+                goto ERROR_HANDLER;
+            }
         }
 
         sleep(cfg.interval);
