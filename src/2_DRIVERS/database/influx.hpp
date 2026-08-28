@@ -5,7 +5,7 @@
 #include <optional>
 #include <string>
 
-#include <error_codes.hpp>
+#include <error_codes.h>
 #include "influxline.hpp"
 
 class Influx

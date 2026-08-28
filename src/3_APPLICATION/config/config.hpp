@@ -1,13 +1,12 @@
 #ifndef CONFIG_HPP_
 #define CONFIG_HPP_
 
-#include <vector>
+#include <error_codes.h>
 #include <string>
-#include <error_codes.hpp>
+#include <vector>
 
 /** @brief Influx configuration */
-struct InfluxConfig
-{
+struct InfluxConfig {
     /** @brief Bool indicating whether we're using InfluxDB */
     bool enabled;
 
@@ -31,18 +30,19 @@ struct InfluxConfig
 };
 
 /** @brief Config for one inverter */
-struct InverterConfig
-{
+struct InverterConfig {
     /** @brief The IP address */
     std::string ip;
 
     /** @brief The name the user gave this inverter */
     std::string name;
+
+    /** @brief The configured Unit Identifier per inverter */
+    unsigned unitIdentifier;
 };
 
 /** @brief General Application configuration */
-struct Configuration
-{
+struct Configuration {
     /** @brief Should we do debug logs */
     bool debug;
 
@@ -57,8 +57,11 @@ struct Configuration
 
     /** @brief Inverters configuration */
     std::vector<InverterConfig> inverters;
+
+    /** @brief Timeout */
+    unsigned timeout;
 };
 
-error_e getConfiguration(Configuration &cfg);
+error_e getConfiguration(Configuration& cfg);
 
 #endif

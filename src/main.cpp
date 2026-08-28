@@ -1,26 +1,28 @@
 /** Includes */
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <array>
 #include <unistd.h> // for sleep()
 
-#include <error_codes.hpp>
+#include <error_codes.h>
 
-#include <config/config.hpp>
-#include <database/influx.hpp>
-#include <database/influxline.hpp>
-#include <inverter/inverter.hpp>
-#include <modbus/modbus.hpp>
-#include <modbus/modbus_sma.h>
+#include <1_LL/network/network.h>
+#include <2_DRIVERS/database/influx.hpp>
+#include <2_DRIVERS/database/influxline.hpp>
+#include <2_DRIVERS/modbus/modbus.h>
+#include <3_APPLICATION/config/config.hpp>
+#include <3_APPLICATION/inverter/inverter.hpp>
+#include <3_APPLICATION/modbus/modbus_sma.h>
+#include <3_APPLICATION/modbus/sma.h>
 
 /** Globals */
 bool g_debug = false;
 
 /** Prototypes */
-error_e processInverter(SmaInverter_t &, modbus_t &);
-error_e exportToInflux(Influx &, const SmaInverter_t &, unsigned long);
+error_e getValuesFromInverter(SmaInverter_t&);
+error_e exportToInflux(Influx&, const SmaInverter_t&, unsigned long);
 
 /** Public functions */
 /**
@@ -29,225 +31,180 @@ error_e exportToInflux(Influx &, const SmaInverter_t &, unsigned long);
  * @param argv
  * @return int
  */
-int main(int argc, char *argv[])
+int main(int argc, char* argv[])
 {
-	using namespace std;
+    using namespace std;
 
-	/* The current InfluxDB config */
-	Configuration cfg{};
+    /* The current InfluxDB config */
+    Configuration cfg {};
 
-	if (eError_ok != getConfiguration(cfg))
-	{
-		exit(EXIT_FAILURE);
-	}
+    if (eError_ok != getConfiguration(cfg)) {
+        exit(EXIT_FAILURE);
+    }
 
-	/** Set globals */
-	g_debug = cfg.debug;
+    /** Set globals */
+    g_debug = cfg.debug;
 
-	/** Connect to InfluxDB */
-	Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token, cfg.influx.measurement);
-	if (eError_ok != ifx.connectNow())
-	{
-		cerr << "main: InfluxDB connection failed\n";
-		return EXIT_FAILURE;
-	}
+    /** Connect to InfluxDB */
+    Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token, cfg.influx.measurement);
+    if (eError_ok != ifx.connectNow()) {
+        cerr << "main: InfluxDB connection failed\n";
+        return EXIT_FAILURE;
+    }
 
-	cout << "Connecting to Inverters...\n";
-	/**
-	 * @note the following is legacy code. It will all be reimplemented as the following
-	 * modbus class
-	 * SmaInverter class(Accepting a Modbus interface for communication with inverter)
-	 */
-	/** Inverters */
-	std::vector<SmaInverter_t> aInverters;
+    cout << "Connecting to Inverters...\n";
+    std::vector<SmaInverter_t> aInverters;
 
-	for (const InverterConfig &invCfg : cfg.inverters)
-	{
-		aInverters.push_back((SmaInverter_t){
-			.Ip = invCfg.ip,
-			.Port = eModbus_port,
-			.Name = invCfg.name,
-		});
-	};
+    /* For each configured inverter */
+    for (const InverterConfig& invCfg : cfg.inverters) {
+        aInverters.push_back((SmaInverter_t) {
+            .networkHandle = network_init(cfg.timeout),
+            .unitIdentifier = static_cast<uint8_t>(invCfg.unitIdentifier),
+            .name = invCfg.name,
+        });
 
-	/* This is all temporary */
-	std::vector<modbus_t *> aModbusConnections;
+        /* Connect to the inverter */
+        auto inv = aInverters.back();
+        if (eError_ok != network_connect(inv.networkHandle, invCfg.ip.c_str(), eModbus_port)) {
+            cerr << "Couldn't connect to inverter\n";
+            return EXIT_FAILURE;
+        }
+    };
 
-	for (const SmaInverter_t &smaInverter : aInverters)
-	{
-		aModbusConnections.push_back(modbus_connect_tcp(smaInverter.Ip.c_str(), smaInverter.Port));
-	}
+    /* Main loop */
+    for (;;) {
 
-	for (;;)
-	{
+        /* Divide by interval to have a rounded timestamp */
+        unsigned long currentTimestamp = time(NULL);
+        currentTimestamp = currentTimestamp - (currentTimestamp % cfg.interval);
 
-		unsigned long currentTimestamp = time(NULL);
+        for (SmaInverter_t& inv : aInverters) {
 
-		for (size_t idx = 0; idx < aInverters.size(); idx++)
-		{
-			SmaInverter_t &inv = aInverters[idx];
-			modbus_t *modbus = aModbusConnections[idx];
+            if (getValuesFromInverter(inv) != eError_ok) {
+                cerr << "Processing inverter failed " << endl;
+                goto ERROR_HANDLER;
+            }
+        }
 
-			if (processInverter(inv, *modbus) != eError_ok)
-			{
-				cerr << "Processing inverter failed " << endl;
-				continue;
-			}
-		}
+        if (cfg.debug) {
 
-		if (cfg.debug)
-		{
+            for (SmaInverter_t& inv : aInverters) {
+                cout << to_string(inv) << "\n";
+            }
+        }
 
-			for (size_t idx = 0; idx < aInverters.size(); idx++)
-			{
-				const SmaInverter_t &inv = aInverters[idx];
-				cout << to_string(inv) << "\n";
-			}
-		}
+        /** Export to InfluxDB using the same timestamp */
 
-		/** Export to InfluxDB using the same timestamp */
-		error_e ret = eError_ok;
-		for (size_t idx = 0; idx < aInverters.size() && ret == eError_ok; idx++)
-		{
-			const SmaInverter_t &inv = aInverters[idx];
-			ret = exportToInflux(ifx, inv, currentTimestamp);
-		}
+        for (SmaInverter_t& inv : aInverters) {
+            if (exportToInflux(ifx, inv, currentTimestamp) != eError_ok) {
+                goto ERROR_HANDLER;
+            }
+        }
 
-		if (eError_ok != ret)
-		{
-			cerr << "Error while exporting data to Influx\n";
-			break;
-			// Abort if connection with Influx lost
-		}
+        sleep(cfg.interval);
+    }
 
-		sleep(cfg.interval);
-	}
-#if 0
-/* should move to the destructor of the modbus unique ptr*/
-	modbus_close(sb3000_conn);
-	modbus_close(sb4000_conn);
-#endif
+ERROR_HANDLER:
+    for (SmaInverter_t& inv : aInverters) {
+        network_close(inv.networkHandle);
+        network_deinit(inv.networkHandle);
+    }
+    ifx.close();
 
-	return EXIT_SUCCESS;
+    return EXIT_FAILURE;
+}
+
+/**
+ * @brief assumes pArray is big enough, retrieves the value from the \p pArray with a base address of \p baseAddress
+ * @param pArray
+ * @param baseAddress
+ * @param targetAddress
+ * @return FIX0
+ */
+FIX0 getFix0AtOffset(uint32_t* pArray, uint16_t baseAddress, uint16_t targetAddress)
+{
+    return *(pArray + ((targetAddress - baseAddress) / 2));
 }
 
 /**
  * @brief requests everything needed from an inverter and pushes to influxDB
- * @param[in,out] inv				inverter struct with IP already filled in
- * @param[in,out] t
+ * @param[in,out] inv		inverter struct with IP already filled in
  * @retval eError_ok		if successfully processed inverter
  * @retval eError_failed	if unsuccessfull to process the given inverter
  */
-error_e processInverter(SmaInverter_t &inv, modbus_t &t)
+error_e getValuesFromInverter(SmaInverter_t& inv)
 {
-	/** A MODBUS register is 2 bytes */
-	const size_t c_registerSize = 2U;
+    /* Prepare handle */
+    modbusWrapper_handle_t handle = {
+        .unitIdentifier = inv.unitIdentifier,
+        .pNetworkHandle = inv.networkHandle,
+    };
 
-	modbus_regs regs;
+    uint32_t value = 0;
 
-	t.slave = 0x03; // 0 = broadcast, 3= my inverters
+    /* Get inverter state */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_pvSystemUtilityGridConnection, &value)) {
+        return eError_failed;
+    }
+    inv.gridConnection = static_cast<smaModbus_pvSystemUtilityGridConnection_e>(value);
 
-	regs = modbus_read_registers(&t, eSmaModbusRegister_statusOfDevice, c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
+    /* Status of the device */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_statusOfDevice, &value)) {
+        return eError_failed;
+    }
+    inv.statusOfDevice = static_cast<smaModbus_statusOfTheDevice_e>(value);
 
-	inv.Condition = static_cast<smaModbus_statusOfTheDevice_e>(getValue(regs, eSmaModbusRegister_statusOfDevice, eSmaModbusRegister_statusOfDevice));
+    /* Energy */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, &value)) {
+        return eError_failed;
+    }
+    inv.totalYield = value;
 
-	modbus_free_registers(regs);
-	regs = modbus_read_registers(&t, eSmaModbusRegister_utilityGridContactor, c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
+    /* Day Energy */
+    if (eError_ok != fetchU32(&handle, eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh, &value)) {
+        return eError_failed;
+    }
+    inv.dayYield = value;
 
-	inv.GridRelay = static_cast<smaModbus_utilityGridContactor_e>(getValue(regs, eSmaModbusRegister_utilityGridContactor, eSmaModbusRegister_utilityGridContactor));
+    /* Get U, I, P */
+    uint32_t aRegisters[32];
+    if (eError_ok != fetchU32Multiple(&handle, eSmaModbusRegister_dcCurrentInput1_S32, (eSmaModbusRegister_lineCurrentOnAllLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) / 2 + 1, aRegisters)) {
+        return eError_failed;
+    }
 
-	modbus_free_registers(regs);
-	regs = modbus_read_registers(&t, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh,
-								 /* Offset in bytes + the last register */
-								 (eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh - eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh) + c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
+    /** DC current input 1 (A) S32; FIX3 */
+    inv.idc1 = ((double)getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcCurrentInput1_S32) / 1000);
+    /** DC voltage input 1 (V) S32; FIX2 */
+    inv.udc1 = ((double)getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcVoltageInput1_S32) / 100);
+    /** DC power input 1 (W) S32; FIX0 */
+    inv.pdc1 = getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcPowerInput1_S32);
+    /** Active power of line conductor L1 (W) S32; FIX0 */
+    inv.pac1 = getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_activePowerOnallLineConductors);
+    /** Line voltage, line conductor L1 to N (V) U32; FIX2 */
+    inv.uac1 = ((double)getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineVoltageLineConductorL1ToN) / 100);
+    /** Line current of line conductor L1 (A); S32; FIX3 */
+    inv.iac1 = ((double)getFix0AtOffset(aRegisters, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineCurrentOnAllLineConductors) / 1000);
 
-	/* Total Yield (Wh) U32; FIX0 */
-	inv.TotalYield = getValue(regs, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh);
-	/* Energy fed in on the current day on all line conductors (Wh) U32; FIX0 */
-	inv.DayYield = getValue(regs, eSmaModbusRegister_totalAcEnergyFedInOnAllLineConductors_Wh, eSmaModbusRegister_energyFedInOnTheCurrentDayOnAllLineConductors_Wh);
+    /* Grid Frequency, reactive & apparent power */
+    if (eError_ok != fetchU32Multiple(&handle, eSmaModbusRegister_powerFrequency, (eSmaModbusRegister_apparentPowerOnAllLineConductors - eSmaModbusRegister_powerFrequency) / 2 + 1, aRegisters)) {
+        return eError_failed;
+    }
 
-	modbus_free_registers(regs);
-	regs = modbus_read_registers(&t, eSmaModbusRegister_dcCurrentInput1_S32,
-								 /* Offset + last register */
-								 (eSmaModbusRegister_lineCurrentOnAllLineConductors - eSmaModbusRegister_dcCurrentInput1_S32) + c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
+    inv.gridFreq = (double)getFix0AtOffset(aRegisters, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_powerFrequency) / 100;
+    inv.reactivePower = getFix0AtOffset(aRegisters, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_reactivePowerOnAllLineConductors);
+    inv.apparentPower = getFix0AtOffset(aRegisters, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_apparentPowerOnAllLineConductors);
 
-	/** DC current input 1 (A) S32; FIX3 */
-	inv.Idc1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcCurrentInput1_S32) / 1000);
-	/** DC voltage input 1 (V) S32; FIX2 */
-	inv.Udc1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcVoltageInput1_S32) / 100);
-	/** DC power input 1 (W) S32; FIX0 */
-	inv.Pdc1 = getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_dcPowerInput1_S32);
-	/** Active power of line conductor L1 (W) S32; FIX0 */
-	inv.Pac1 = getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_activePowerOnallLineConductors);
-	/** Line voltage, line conductor L1 to N (V) U32; FIX2 */
-	inv.Uac1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineVoltageLineConductorL1ToN) / 100);
-	/** Line current of line conductor L1 (A); S32; FIX3 */
-	inv.Iac1 = ((double)getValue(regs, eSmaModbusRegister_dcCurrentInput1_S32, eSmaModbusRegister_lineCurrentOnAllLineConductors) / 1000);
+    /** Temperature, DC */
+    if (eError_ok != fetchU32Multiple(&handle, eSmaModbusRegister_internalTemperature, (eSmaModbusRegister_dcPowerInput2_S32 - eSmaModbusRegister_internalTemperature) / 2 + 1, aRegisters)) {
+        return eError_failed;
+    }
 
-	modbus_free_registers(regs);
-	regs = modbus_read_registers(&t, eSmaModbusRegister_powerFrequency, c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
+    inv.temperature = getFix0AtOffset(aRegisters, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_internalTemperature) / 10;
+    inv.idc2 = (double)getFix0AtOffset(aRegisters, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcCurrentInput2_S32) / 1000;
+    inv.udc2 = (double)getFix0AtOffset(aRegisters, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcVoltageInput2_S32) / 100;
+    inv.pdc2 = getFix0AtOffset(aRegisters, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcPowerInput2_S32);
 
-	/** Power frequency (Hz) U32; FIX2 */
-	inv.GridFreq = ((double)getValue(regs, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_powerFrequency) / 100); // Hz
-	/** Reactive power on all line conductors (VAr) S32; FIX0 */
-	inv.ReactivePower = getValue(regs, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_reactivePowerOnAllLineConductors); // VAr
-	/** Apparent power on all line conductors (VA) S32; FIX0 */
-	inv.ApparentPower = getValue(regs, eSmaModbusRegister_powerFrequency, eSmaModbusRegister_apparentPowerOnAllLineConductors); // VA
-
-	modbus_free_registers(regs);
-	regs = modbus_read_registers(&t, eSmaModbusRegister_internalTemperature, (eSmaModbusRegister_dcPowerInput2_S32 - eSmaModbusRegister_internalTemperature) + c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
-
-	/** Internal temperature (C) S32; TEMP */
-	inv.Temperature = getValue(regs, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_internalTemperature) / 10;
-
-	/** DC current input 2 (A); S32; FIX3 */
-	inv.Idc2 = ((double)getValue(regs, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcCurrentInput2_S32) / 1000);
-	/** DC voltage input 2 (V); S32; FIX2 */
-	inv.Udc2 = ((double)getValue(regs, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcVoltageInput2_S32) / 100);
-	/** DC power input 2 (W); S32; FIX0 */
-	inv.Pdc2 = getValue(regs, eSmaModbusRegister_internalTemperature, eSmaModbusRegister_dcPowerInput2_S32);
-
-	modbus_free_registers(regs);
-
-#if 0
-	/* My inverters don't support a heatsink temperature reading :c */
-	regs = modbus_read_registers(&t, eSmaModbusRegister_heatSinkTemperature1, c_registerSize);
-	if (regs == NULL)
-	{
-		return eError_failed;
-	}
-
-	/** Heat sink temperature (C) S32; TEMP; 34109 */
-	inv.HeatsinkTemperature = ((double)getValue(regs, eSmaModbusRegister_heatSinkTemperature1, eSmaModbusRegister_heatSinkTemperature1) / 10);
-
-	modbus_free_registers(regs);
-#endif
-
-	return eError_ok;
+    return eError_ok;
 }
 
 /**
@@ -257,48 +214,45 @@ error_e processInverter(SmaInverter_t &inv, modbus_t &t)
  * @param currentTimestamp
  * @return error_e from Influx.post()
  */
-error_e exportToInflux(Influx &ifx, const SmaInverter_t &inv,
-					   unsigned long currentTimestamp)
+error_e exportToInflux(Influx& ifx, const SmaInverter_t& inv,
+    unsigned long currentTimestamp)
 {
-	InfluxLine line("inverter");
+    InfluxLine line("inverter");
 
-	line.setTimestamp(currentTimestamp);
+    line.setTimestamp(currentTimestamp);
 
-	line.addTag("name", inv.Name);
+    line.addTag("name", inv.name);
 
-	line.addField("Condition", int(inv.Condition));
+    line.addField("status", int(inv.statusOfDevice));
+    line.addField("gridConnection", int(inv.gridConnection));
 
-	line.addField("DayYield", inv.DayYield);
-	line.addField("TotalYield", inv.TotalYield);
+    line.addField("dayYield", int(inv.dayYield));
+    line.addField("totalYield", int(inv.totalYield));
 
-	/* Inverter's grid relay contactor is not closed -> Post only limited values, should find some other way*/
-	if (inv.GridRelay != eSmaModbusUtilityGridContactor_closed)
-	{
-		return ifx.post(line.getLine());
-	}
-	else
-	{
-		line.addField("GridRelay", int(inv.GridRelay));
-		line.addField("Temperature", inv.Temperature);
+    /* Inverter's grid relay contactor is not closed -> Post only limited values, should find some other way*/
+    if (inv.gridConnection != eSmaModbusPvSystemUtilityGridConnection_utilityGrid) {
+        return ifx.post(line.getLine());
+    } else {
+        line.addField("temperature", inv.temperature);
 
-		line.addField("GridFreq", inv.GridFreq);
+        line.addField("gridFreq", inv.gridFreq);
 
-		line.addField("Pac1", inv.Pac1);
-		line.addField("Pdc1", inv.Pdc1);
-		line.addField("Pdc2", inv.Pdc2);
+        line.addField("pac1", int(inv.pac1));
+        line.addField("pdc1", int(inv.pdc1));
+        line.addField("pdc2", int(inv.pdc2));
 
-		line.addField("Uac1", inv.Uac1);
-		line.addField("Udc1", inv.Udc1);
-		line.addField("Udc2", inv.Udc2);
+        line.addField("uac1", inv.uac1);
+        line.addField("udc1", inv.udc1);
+        line.addField("udc2", inv.udc2);
 
-		line.addField("Iac1", inv.Iac1);
-		line.addField("Idc1", inv.Idc1);
-		line.addField("Idc2", inv.Idc2);
+        line.addField("iac1", inv.iac1);
+        line.addField("idc1", inv.idc1);
+        line.addField("idc2", inv.idc2);
 
-		line.addField("ReactivePower", inv.ReactivePower);
-		line.addField("ApparentPower", inv.ApparentPower);
+        line.addField("reactivePower", int(inv.reactivePower));
+        line.addField("apparentPower", int(inv.apparentPower));
 
-		return ifx.post(line.getLine());
-	}
-	return eError_ok;
+        return ifx.post(line.getLine());
+    }
+    return eError_ok;
 }
