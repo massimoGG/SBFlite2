@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     for (const InverterConfig& invCfg : cfg.inverters) {
         aInverters.push_back((SmaInverter_t) {
             .networkHandle = network_init(cfg.timeout),
-            .unitIdentifier = invCfg.unitIdentifier,
+            .unitIdentifier = static_cast<uint8_t>(invCfg.unitIdentifier),
             .name = invCfg.name,
         });
 
