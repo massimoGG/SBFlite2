@@ -2,9 +2,12 @@
  * @file influx.cpp
  * @brief InfluxDB LineProtocol class implementation
  */
-
+#include <curl/curl.h>
+#include <curl/easy.h>
 #include <iostream>
+#include <cassert>
 #include <cstring> // memset
+#include <string>
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -14,141 +17,101 @@
 #include <netdb.h>
 
 #include "influx.hpp"
+#include "error_codes.h"
 
 /** Global */
 extern bool g_debug;
+
+namespace influx {
+
+/** Constants */
+static constexpr long c_influxOk = 204;
 
 /** Static */
 const unsigned int Influx::s_bufsize = 8196;
 
 /** Constructor */
 Influx::Influx(const std::string &host, const unsigned short port, const std::string &org, const std::string &bucket, const std::string &token, const std::string &measurement)
-    : m_host{host}, m_port{port}, m_org{org}, m_bucket{bucket}, m_token{token}, m_measurement{measurement}
 {
-    m_sockfd = std::nullopt;
+    m_curl = curl_easy_init();
+
+    /* Configure Curl Host -> POST /api/v2/write?bucket=%s&org=%s&precision=s*/
+    /** @warning curl guesses the scheme unless we explicitely pass it */
+    const std::string c_url = host + ':' + std::to_string(port) + 
+        std::string("/api/v2/write?bucket=") + bucket + 
+        std::string("&org=") + org + 
+        std::string("&precision=s");
+    std::cout << "URL: " << c_url << "\n";
+    curl_easy_setopt(m_curl, CURLOPT_URL, c_url.c_str());
+
+    /* Configure Content-Type: text/plain */
+    m_curl_headers = curl_slist_append(NULL, "Content-Type: text/plain");
+
+    /* Authorization: Token */
+    std::string authorizationStr  = std::string("Authorization: Token ") + token;
+    m_curl_headers = curl_slist_append(m_curl_headers, authorizationStr.c_str());
+
+    /* Apply header config */
+    curl_easy_setopt(m_curl, CURLOPT_HTTPHEADER, m_curl_headers);
+
+    /* Set timeout */
+    curl_easy_setopt(m_curl, CURLOPT_TIMEOUT, 1);
+}
+
+/** Destructor - Cleanup */
+Influx::~Influx()
+{
+    curl_easy_cleanup(m_curl);
+    curl_slist_free_all(m_curl_headers);
 }
 
 /**
- * @brief connects to the remote server using socket
- * @retval eError_ok        if we're connected
- * @retval eError_invalid   if we're not in a state to connect (e.g. already connected)
- * @retval eError_failed    if we couldn't connect
+ * @brief posts the measurment
+ * @retval eError_invalid   if curl wasn't initialized correctly
+ * @retval eError_failed    if curl wasn't able to perform the transaction
+ * @retval eError_ok        if successfull
  */
-error_e Influx::connectNow(void)
+error_e Influx::post(const std::string &data)
 {
     using namespace std;
 
-    cout << "influxdb: Connecting to " << m_host << ":" << m_port << " with organisation " << m_org << " and bucket " << m_bucket << ".\n";
-
-    if (m_sockfd)
-    {
-        /* Can't allow, must close socket first */
+    if (nullptr == m_curl){
         return eError_invalid;
     }
 
-    m_sockfd = m_sockfd ? m_sockfd : socket(AF_INET, SOCK_STREAM, 0);
-    if (m_sockfd <= 0)
-    {
-        cerr << "influxdb: socket failed\n";
-        return eError_failed;
+    curl_easy_setopt(m_curl, CURLOPT_POSTFIELDS, data.c_str());
+
+    const CURLcode ret = curl_easy_perform(m_curl);
+    if (CURLE_OPERATION_TIMEDOUT == ret) {
+        return eError_timeout;
     }
 
-    /* Resolve name */
-    struct addrinfo hints, *res;
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_STREAM;
+    if (CURLE_OK == ret) {
+        /* Get response code */
+        long http_code = 0;
+        curl_easy_getinfo(m_curl, CURLINFO_RESPONSE_CODE, &http_code);
 
-    int status = getaddrinfo(m_host.c_str(), NULL, &hints, &res);
-    if (status != 0)
-    {
-        cerr << "influxdb: getaddrinfo error : " << gai_strerror(status) << "\n";
-
-        if (res != nullptr)
-        {
-            freeaddrinfo(res);
+        if (c_influxOk == http_code) {
+            return eError_ok;
         }
 
-        return eError_failed;
+        printf("HTTP Code: %ld\n", http_code);
     }
 
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr = ((struct sockaddr_in *)(res->ai_addr))->sin_addr;
-    serv_addr.sin_port = htons(m_port);
-
-    freeaddrinfo(res);
-
-    if (connect(*m_sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        cerr << "influxdb: connection failed\n";
-        return eError_failed;
-    }
-
-    cout << "influxdb: Connected!\n";
-    return eError_ok;
+    return eError_failed;
 }
 
-/**
- * @brief closes a possible socket file descriptor
- * @retval eError_ok
- */
-error_e Influx::close(void)
-{
-    if (m_sockfd)
-    {
-        ::close(*m_sockfd);
 
-        /* Clear optional */
-        m_sockfd.reset();
-    }
+error_e init(void)
+{
+    return CURLE_OK == curl_global_init(0) ? eError_ok : eError_failed;
+}
+
+error_e deinit(void)
+{
+    curl_global_cleanup();
 
     return eError_ok;
 }
 
-error_e Influx::post(const std::string &body)
-{
-    char header[512];
-    std::string buffer;
-
-    ssize_t len = sprintf(header, "POST /api/v2/write?bucket=%s&org=%s&precision=s HTTP/1.1\r\nHost: %s:%d\r\nUser-Agent: influxdb-client-cheader\r\nContent-Length: %d\r\nAuthorization: Token %s\r\n\r\n",
-                          m_bucket.c_str(), m_org.c_str(), m_host.c_str(), m_port, (int)body.length(), m_token.c_str());
-
-    // Combine header and body
-    buffer = std::string(header) + body;
-    size_t buffer_len = buffer.length();
-
-    /* Print influx in debug */
-    if (g_debug)
-    {
-        std::cout << buffer << std::endl;
-    }
-
-    int rc = write(*m_sockfd, buffer.c_str(), buffer_len);
-    if (rc < len)
-    {
-        // TODO Do this properly :)
-        fprintf(stderr, "influxdb: Could not POST!\n");
-        if (rc == 0)
-        {
-            fprintf(stderr, "influxdb: Lost connection\n");
-            // Disconnected
-            this->connectNow();
-        }
-        else
-        {
-            return eError_failed;
-        }
-    }
-
-    return eError_ok;
-}
-
-/**
- * @brief gets the measurement name configured
- * @return const std::string&
- */
-const std::string &Influx::getMeasurement(void) const
-{
-    return m_measurement;
-}
+};

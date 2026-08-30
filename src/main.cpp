@@ -1,10 +1,10 @@
 /** Includes */
-#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <unistd.h> // for sleep()
+#include <vector>
 
 #include <error_codes.h>
 
@@ -21,8 +21,12 @@
 bool g_debug = false;
 
 /** Prototypes */
-error_e getValuesFromInverter(SmaInverter_t&);
-error_e exportToInflux(Influx&, const SmaInverter_t&, unsigned long);
+static error_e app_run(const Configuration &cfg, influx::Influx &ifx, std::vector<SmaInverter_t> &aInverters);
+static error_e app_cleanup(void);
+static FIX0 getFix0AtOffset(uint32_t* pArray, uint16_t baseAddress, uint16_t targetAddress);
+static error_e getValuesFromInverter(SmaInverter_t&);
+static error_e exportToInflux(influx::Influx&, std::vector<SmaInverter_t> &, unsigned long);
+static InfluxLine updateInfluxLine(const SmaInverter_t &inv, unsigned long currentTimestamp);
 
 /** Public functions */
 /**
@@ -45,31 +49,49 @@ int main(int argc, char* argv[])
     /** Set globals */
     g_debug = cfg.debug;
 
-    /** Connect to InfluxDB */
-    Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token, cfg.influx.measurement);
-    if (eError_ok != ifx.connectNow()) {
-        cerr << "main: InfluxDB connection failed\n";
-        return EXIT_FAILURE;
+    /* Init HTTP */
+    if (eError_ok != influx::init()) {
+        exit(EXIT_FAILURE);
     }
 
-    cout << "Connecting to Inverters...\n";
-    std::vector<SmaInverter_t> aInverters;
+    {
+        /** Connect to InfluxDB */
+        influx::Influx ifx(cfg.influx.host, cfg.influx.port, cfg.influx.org, cfg.influx.bucket, cfg.influx.token, cfg.influx.measurement);
 
-    /* For each configured inverter */
-    for (const InverterConfig& invCfg : cfg.inverters) {
-        aInverters.push_back((SmaInverter_t) {
-            .networkHandle = network_init(cfg.timeout),
-            .unitIdentifier = static_cast<uint8_t>(invCfg.unitIdentifier),
-            .name = invCfg.name,
-        });
+        cout << "Connecting to Inverters...\n";
+        std::vector<SmaInverter_t> aInverters;
 
-        /* Connect to the inverter */
-        auto inv = aInverters.back();
-        if (eError_ok != network_connect(inv.networkHandle, invCfg.ip.c_str(), eModbus_port)) {
-            cerr << "Couldn't connect to inverter\n";
-            return EXIT_FAILURE;
+        /* For each configured inverter */
+        for (const InverterConfig& invCfg : cfg.inverters) {
+            aInverters.push_back((SmaInverter_t) {
+                .networkHandle = network_init(cfg.timeout),
+                .unitIdentifier = static_cast<uint8_t>(invCfg.unitIdentifier),
+                .name = invCfg.name,
+            });
+
+            /* Connect to the inverter */
+            auto inv = aInverters.back();
+            if (eError_ok != network_connect(inv.networkHandle, invCfg.ip.c_str(), eModbus_port)) {
+                cerr << "Couldn't connect to inverter\n";
+                return eError_failed;
+            }
+        };
+
+        app_run(cfg, ifx, aInverters);
+        for (SmaInverter_t& inv : aInverters) {
+            network_close(inv.networkHandle);
+            network_deinit(inv.networkHandle);
         }
-    };
+    }
+
+    app_cleanup();
+    
+    return EXIT_FAILURE;
+}
+
+static error_e app_run(const Configuration &cfg, influx::Influx &ifx, std::vector<SmaInverter_t> &aInverters)
+{
+    using namespace std;
 
     /* Main loop */
     for (;;) {
@@ -82,7 +104,7 @@ int main(int argc, char* argv[])
 
             if (getValuesFromInverter(inv) != eError_ok) {
                 cerr << "Processing inverter failed " << endl;
-                goto ERROR_HANDLER;
+                return eError_failed;
             }
         }
 
@@ -94,24 +116,22 @@ int main(int argc, char* argv[])
         }
 
         /** Export to InfluxDB using the same timestamp */
-
-        for (SmaInverter_t& inv : aInverters) {
-            if (exportToInflux(ifx, inv, currentTimestamp) != eError_ok) {
-                goto ERROR_HANDLER;
-            }
+        if (eError_ok != exportToInflux(ifx, aInverters, currentTimestamp)) {
+            cerr << "Influx failed" << endl;
+            return eError_failed;
         }
 
         sleep(cfg.interval);
     }
+}
 
-ERROR_HANDLER:
-    for (SmaInverter_t& inv : aInverters) {
-        network_close(inv.networkHandle);
-        network_deinit(inv.networkHandle);
-    }
-    ifx.close();
-
-    return EXIT_FAILURE;
+/**
+ * @brief cleans up any globals
+ * @return error_e status
+ */
+static error_e app_cleanup(void)
+{
+    return influx::deinit();
 }
 
 /**
@@ -121,7 +141,7 @@ ERROR_HANDLER:
  * @param targetAddress
  * @return FIX0
  */
-FIX0 getFix0AtOffset(uint32_t* pArray, uint16_t baseAddress, uint16_t targetAddress)
+static FIX0 getFix0AtOffset(uint32_t* pArray, uint16_t baseAddress, uint16_t targetAddress)
 {
     return *(pArray + ((targetAddress - baseAddress) / 2));
 }
@@ -132,7 +152,7 @@ FIX0 getFix0AtOffset(uint32_t* pArray, uint16_t baseAddress, uint16_t targetAddr
  * @retval eError_ok		if successfully processed inverter
  * @retval eError_failed	if unsuccessfull to process the given inverter
  */
-error_e getValuesFromInverter(SmaInverter_t& inv)
+static error_e getValuesFromInverter(SmaInverter_t& inv)
 {
     /* Prepare handle */
     modbusWrapper_handle_t handle = {
@@ -214,9 +234,25 @@ error_e getValuesFromInverter(SmaInverter_t& inv)
  * @param currentTimestamp
  * @return error_e from Influx.post()
  */
-error_e exportToInflux(Influx& ifx, const SmaInverter_t& inv,
+static error_e exportToInflux(influx::Influx& ifx, std::vector<SmaInverter_t> &aInverters,
     unsigned long currentTimestamp)
 {
+    std::string influxLines;
+
+    /* Create Line for Influx for each Inverter */
+    for (SmaInverter_t &inv : aInverters) {
+        std::string line = updateInfluxLine(inv, currentTimestamp).getLine();
+
+        /* New line for each measurement */
+        influxLines += line + "\n";
+    }
+
+    return ifx.post(influxLines);
+}
+
+
+static InfluxLine updateInfluxLine(const SmaInverter_t &inv, unsigned long currentTimestamp) {
+    /* Create object */
     InfluxLine line("inverter");
 
     line.setTimestamp(currentTimestamp);
@@ -230,9 +266,7 @@ error_e exportToInflux(Influx& ifx, const SmaInverter_t& inv,
     line.addField("totalYield", int(inv.totalYield));
 
     /* Inverter's grid relay contactor is not closed -> Post only limited values, should find some other way*/
-    if (inv.gridConnection != eSmaModbusPvSystemUtilityGridConnection_utilityGrid) {
-        return ifx.post(line.getLine());
-    } else {
+    if (eSmaModbusPvSystemUtilityGridConnection_utilityGrid == inv.gridConnection) {
         line.addField("temperature", inv.temperature);
 
         line.addField("gridFreq", inv.gridFreq);
@@ -252,7 +286,7 @@ error_e exportToInflux(Influx& ifx, const SmaInverter_t& inv,
         line.addField("reactivePower", int(inv.reactivePower));
         line.addField("apparentPower", int(inv.apparentPower));
 
-        return ifx.post(line.getLine());
     }
-    return eError_ok;
+    
+    return line;
 }
