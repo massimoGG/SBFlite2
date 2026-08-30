@@ -1,5 +1,11 @@
 cmake_minimum_required(VERSION 3.20)
 
+# Find libcurl
+find_package(
+    CURL 
+    REQUIRED
+)
+
 project(SBFlite LANGUAGES C CXX)
 
 # For VScode
@@ -34,6 +40,11 @@ include_directories(SBFlite
     inc/
     submodules/toml11/include
 )
+target_link_libraries(
+    SBFlite
+    PRIVATE
+    CURL::libcurl
+)
 
 add_executable(mbcli)
 target_sources(mbcli
@@ -55,6 +66,11 @@ include_directories(mbcli
     src/
     inc/
 )
+target_link_libraries(
+    mbcli
+    PRIVATE
+    CURL::libcurl
+)
 
 add_executable(test)
 target_sources(test
@@ -75,5 +91,10 @@ target_sources(test
 include_directories(test
     src/
     inc/
+)
+target_link_libraries(
+    test
+    PRIVATE
+    CURL::libcurl
 )
 
